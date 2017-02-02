@@ -1,158 +1,195 @@
 ﻿
+ODP THUNDERX PLATFORM
 ==================================
-      ODP THUNDERX PLATFORM
-==================================
+
+RELEASE INFORMATION
+-------------------------------
+
+This release supports ODP API version **v1.11.0.0** aka Monarch LTS
+
+
+PLATFORM COMPATILIBILITY
+-------------------------------
+
+This release is compatible with following Cavium platforms:
+
+  * ThunderX
+    * CN88XX
+    * CN81XX
+  * Octeon TX
+    * CN83XX 
 
 
 PACKAGE DEPENDENCIES
+======================
 
---= Platform dependencies =--
+Platform dependencies
+------------------------------
 
 ODP ThunderX port has following additional dependencies:
 
- * Linux distribution supported:
-   * Ubuntu 16.10
-   * Cavium embedded rootfs
- * GCC toolchain
-   * ThunderX GCC toolchain
-   * GCC 6.2 from Ubuntu 16.10 distribution
- * Linux Kernel 
-   * Linux 4.9.x for ThunderX
- * Kernel modules for user-space device access
-   - vfio-pci, provided by kernel source (either compiled in or loaded from module)
-   - kernel ThunderX VNIC PF and BGX driver, provided by kernel source (compiled
-     in by default)
+  * Linux distributions supported (either of these):
+    * Ubuntu 16.10
+    * Cavium embedded rootfs
+  * GCC toolchain
+    * ThunderX GCC toolchain. It is required for embedded rootfs
+      and optional for Ubuntu distros
+    * GCC 6.2 from Ubuntu 16.10 distribution
+  * Linux Kernel
+    * Linux 4.9.x for ThunderX
+  * Kernel modules for user-space device access
+    * vfio-pci, provided by kernel source (either compiled in or loaded from module)
+    * kernel ThunderX VNIC PF and BGX driver, provided by kernel source 
+      (compiled in by default)
 
---= ODP build system dependencies =--
+ODP build system dependencies
+------------------------------
 
 ODP build system requires following system tools:
+
  - automake
  - autoconf
  - libtool
 
---= odp-thunderx dependencies =--
+odp-thunderx dependencies
+------------------------------
 
 ODP ThunderX platfrom has following dependencies:
+
   * OpenSSL (odp-crypto API)
   * libcunit (optional unit tests)
 
 
---= Building ODP ThunderX platform natively on Ubuntu 16.10 (arm64) =--
+Building ODP ThunderX platform natively on Ubuntu 16.10 (arm64)
+------------------------------
 
-1. Install dependencies
+  1. Install dependencies:
+  
+        apt install libcunit1-dev libssl-dev
 
-$ apt install libcunit1-dev libssl-dev
+  2. Build using system libraries
 
-2. Build using system libraries
-
-$ ./configure --with-platform=linux-thunder \
-  --disable-debug-print \
-  --disable-debug \
-  CFLAGS="-O3 -static" \
-  LIBS="-ldl"
+        ./configure --with-platform=linux-thunder \
+          --disable-debug-print \
+          --disable-debug \
+          CFLAGS="-O3 -static" \
+          LIBS="-ldl"
 
 
 BUILDING CAVIUM LINUX TREE
+==========================
 
---= Download instructions =--
+
+Download instructions
+---------------------
 
 Cavium Linux tree can be downloaded from Github:
 
-$ git clone git@github.com:caviumnetworks/thunderx-linux
+    git clone git@github.com:caviumnetworks/thunderx-linux
 
 
---= Cross-compiling Linux Kernel for ThunderX =--
+Cross-compiling Linux Kernel for ThunderX
+-----------------------------------------
 
 1. Setup path for ThunderX toolchain as described below.
 2. Prepare cross-compilation environment for Linux
 
-$ export ARCH=arm64
-$ export CROSS_COMPILE=aarch64-thunderx-linux-gnu-
+        export ARCH=arm64
+        export CROSS_COMPILE=aarch64-thunderx-linux-gnu-
 
 3. Use kernel config file provided in configs/thunderx_config
 
-$ cp configs/thunderx_config .config
-$ make oldconfig
+        cp configs/thunderx_config .config
+        make oldconfig
 
 4. Compile Linux image
 
-$ make Image -j 4
+        make Image -j 4
 
 
---= Compiling Linux Kernel for ThunderX on AARCH64 system =--
+Compiling Linux Kernel for ThunderX on AARCH64 system
+-----------------------------------------------------
 
 1. Use kernel config file provided in configs/thunderx_config
 
-$ cp configs/thunderx_config .config
-$ make oldconfig
+        cp configs/thunderx_config .config
+        make oldconfig
 
 2. Compile Linux image
 
-$ make Image -j 4
+        make Image -j 4
 
 
 CROSS-COMPILING ODP FOR AARCH64
+===============================
 
---= Using ThunderX GCC toolchain for cross-compilation =--
+
+Using ThunderX GCC toolchain for cross-compilation
+--------------------------------------------------
+
 
 1. Download and unpack ThunderX toolchain:
 
-$ git clone git@github.com:caviumnetworks/thunderx-tools.git
-$ cd thunderx-tools/thunderx-tools-421
-$ cat thunderx-tools-?? | tar xj
+        git clone git@github.com:caviumnetworks/thunderx-tools.git
+        cd thunderx-tools/thunderx-tools-421
+        cat thunderx-tools-?? | tar xj
  
 2. Add tollchain binaries from bin/ and usr/bin/ to system path:
 
-$ THUNDERX_TOOLS=/path/to/thunderx-tools-421
-$ PATH=${THUNDERX_TOOLS}/bin:${THUNDERX_TOOLS}/usr/bin:$PATH
+        THUNDERX_TOOLS=/path/to/thunderx-tools-421
+        PATH=${THUNDERX_TOOLS}/bin:${THUNDERX_TOOLS}/usr/bin:$PATH
 
 
---= Cross-compiling OpenSSL =--
+Cross-compiling OpenSSL
+-----------------------
 
 1. Download OpenSSL
 
-$ wget https://www.openssl.org/source/openssl-1.0.2a.tar.gz
-$ tar xvf openssl-1.0.2a.tar.gz
-$ cd openssl-1.0.2a
+        wget https://www.openssl.org/source/openssl-1.0.2a.tar.gz
+        tar xvf openssl-1.0.2a.tar.gz
+        cd openssl-1.0.2a
 
 2. Prepare cross-toolchain
 
-$ export ARCH=arm64
-$ export CROSS_COMPILE=aarch64-thunderx-linux-gnu-
+         export ARCH=arm64
+         export CROSS_COMPILE=aarch64-thunderx-linux-gnu-
 
 3. Build & install OpenSSL
 
-$ export OPENSSL_DIR=<choose some openssl root dir>
-$ ./Configure shared --openssldir=$OPENSSL_DIR linux-aarch64
-$ make all install
+         export OPENSSL_DIR=<choose some openssl root dir>
+         ./Configure shared --openssldir=${OPENSSL_DIR} linux-aarch64
+         make all install
 
---= Cross-compiling odp-thunderx =--
+Cross-compiling odp-thunderx
+---------------------------------
 
-$ cd odp-thunderx
-$ ./bootstrap
-$ ./configure --host=aarch64-thunderx-linux-gnu \
+         cd odp-thunderx
+         ./bootstrap
+         ./configure --host=aarch64-thunderx-linux-gnu \
               --with-platform=linux-thunder \
               --with-openssl-path=${OPENSSL_DIR} \
               --disable-debug-print \
               CFLAGS="-O3 -static" \
               LIBS="-ldl"
 
---= Cross-building ODP ThunderX platform with CUnit tests =--
+Cross-building ODP ThunderX platform with CUnit tests
+-----------------------------------------------------
 
 1. Build CUnit
 
-$ export CUNIT_DIR=<choose some cunit root dir>
-$ wget http://heanet.dl.sourceforge.net/project/cunit/CUnit/2.1-3/CUnit-2.1-3.tar.bz2
-$ tar xf CUnit-2.1-3.tar.bz2
-$ cd CUnit-2.1-3
-$ ./bootstrap
-$ ./configure --host=aarch64-thunderx-linux-gnu --prefix=${CUNIT_DIR}
-$ make all install
+         export CUNIT_DIR=<choose some cunit root dir>
+         wget http://heanet.dl.sourceforge.net/project/cunit/CUnit/2.1-3/CUnit-2.1-3.tar.bz2
+         tar xf CUnit-2.1-3.tar.bz2
+         cd CUnit-2.1-3
+         ./bootstrap
+         ./configure --host=aarch64-thunderx-linux-gnu --prefix=${CUNIT_DIR}
+         make all install
 
 2. Build ODP with CUnit
-$ ./bootstrap
-$ export ODP_DIR=<chose some instalation dir for ODP>
-$ ./configure --prefix=$ODP_DIR \
+
+         ./bootstrap
+         export ODP_DIR=<chose some instalation dir for ODP>
+         ./configure --prefix=${ODP_DIR} \
               --host=aarch64-thunderx-linux-gnu \
               --with-platform=linux-thunder \
               --with-openssl-path=${OPENSSL_DIR} \
@@ -160,24 +197,26 @@ $ ./configure --prefix=$ODP_DIR \
               --enable-debug \
               --enable-cunit-support \
               --with-cunit-path=${CUNIT_DIR}
-$ make all install
+         make all install
 
 
 BULDING OPTIONS
+================
 
 There are 2 environment variables controlling compilation options:
- - CFLAGS - for compilation options, e.g. defines, includes
- - LDLAGS - for linker options, e.g. -ldl
+
+  - CFLAGS - for compilation options, e.g. defines, includes
+  - LDLAGS - for linker options, e.g. -ldl
 
 They can be used along with "configure" script, eg.:
 
-$ ./configure --prefix=$ODP_DIR \
-              --host=aarch64-thunderx-linux-gnu \
-              --with-platform=linux-thunder \
-              --with-openssl-path=${OPENSSL_DIR} \
-              --disable-debug-print \
-              CFLAGS="-O3 -g" \
-              LDFLAGS="-ldl"
+       ./configure --prefix=${ODP_DIR} \
+            --host=aarch64-thunderx-linux-gnu \
+            --with-platform=linux-thunder \
+            --with-openssl-path=${OPENSSL_DIR} \
+            --disable-debug-print \
+            CFLAGS="-O3 -g" \
+            LDFLAGS="-ldl"
 
 There are 2 options controlling debug level:
   - "--enable-debug-print", "--disable-debug-print" - controls ODP internal
@@ -193,7 +232,7 @@ For highest speed, the recommended build options are:
  - extra CFLAGS added: optimization level 3 (-O3), static linkage (-static) and link time optimization (-flto).
  - extra LIBS added: dynamic linker (-ldl) which is required by openssl library during static linkage.
 
-$ ./configure --prefix=$ODP_DIR \
+         ./configure --prefix=${ODP_DIR} \
               --host=aarch64-thunderx-linux-gnu \
               --with-platform=linux-thunder \
               --with-openssl-path=${OPENSSL_DIR} \
@@ -212,7 +251,8 @@ configure stage:
  --enable-test-perf
  --enable-test-vald
 
---= Additional compilation options for ODP platform behavior =--
+Additional compilation options for ODP platform behavior
+--------------------------------------------------------
 
 There are several ODP ThunderX port defines which influence on compilation:
 
@@ -234,6 +274,8 @@ There are several ODP ThunderX port defines which influence on compilation:
 
 
 ThunderX SYSTEM SETUP
+=====================
+
 
 Below you may find requirements and actions which need to be meet before you
 start your ODP applications.
@@ -254,11 +296,12 @@ start your ODP applications.
 
 Detail of those can be found below:
 
---= Hugetlbfs =--
+Hugetlbfs
+---------
 
-$ mkdir -p /dev/huge
-$ mount -t hugetlbfs none /dev/huge
-$ echo 256 > /proc/sys/vm/nr_hugepages
+         mkdir -p /dev/huge
+         mount -t hugetlbfs none /dev/huge
+         echo 256 > /proc/sys/vm/nr_hugepages
 
 If you see problems with ODP application startup due inefficient amount
 continuous memory pages, increase the number of pages from 256 to 512.
@@ -279,12 +322,16 @@ All of mentioned sizes are configurable by user (mentioned defines).
 Example application uses two defines to calculate the size of the buffer pools
 POOL_SIZE_GLOBAL and POOL_SIZE_THREAD.
 
---= Opening Pktio, naming convention for interfaces =--
+
+Opening Pktio, naming convention for interfaces
+-----------------------------------------------
 
 odp_packetio_open() accepts following string patterns as interface names.
-vfio:<<group1>.<group2>.<groupn>>
+
+      vfio:group-1.group-2.group-n
 
 The above naming convention means that:
+
 - with single VF (specified by single vfio group),
   odp_pktio_open() can open up to 8 HW queues on the same interface.
 - it is possible to open more than 8 HW queues on the same interface. To do that
@@ -299,19 +346,23 @@ Examples:
 
 Using single VF (iommu group 59) with 8 queues, the odp_pktio_open() string 
 will be like the following:
-odp_pktio_t pktio = odp_pktio_open("vfio:59", ...)
+
+    odp_pktio_t pktio = odp_pktio_open("vfio:59", ...)
 
 Using combined VF's (iommu groups 59, 82) with 16 queues, the odp_pktio_open()
 string will be like the following:
-odp_pktio_t pktio = odp_pktio_open("vfio:59.82", ...)
+
+    odp_pktio_t pktio = odp_pktio_open("vfio:59.82", ...)
 
 How to get the vfio VF numbers is described in following sections.
 As mentioned, there is kernel limitation on which VF's can be combined together.
 Put attention to this fact while reading below section.
 
---= Using multiple VFs per interface =--
+Using multiple VFs per interface
+--------------------------------
 
 There are two types of VFs:
+
  - Primary VF
  - Secondary VF
 
@@ -332,96 +383,101 @@ secondary VFs are on the remaining on the remaining part of the list.
 As a rule, each VF that is not by default bound by Linux to network device is a secondary VF.
 
 
---= Binding NIC interfaces =--
+Binding NIC interfaces
+-----------------------
 
 Userspace dataplane application need to access VF interface either by VFIO driver.
 Interfaces can be binded to VFIO-PCI driver by following procedure:
 
-$ echo 0002:01:00.2 > /sys/bus/pci/devices/0002\:01\:00.2/driver/unbind
+         echo 0002:01:00.2 > /sys/bus/pci/devices/0002\:01\:00.2/driver/unbind
 
-$ modprobe vfio-pci #if not compiled in the kernel
+         modprobe vfio-pci #if not compiled in the kernel
 
-$ echo 177d 0011 > /sys/bus/pci/drivers/vfio-pci/new_id
-$ VFIO_GROUP=$(readlink /sys/bus/pci/devices/0002\:01\:00.2/iommu_group)
+         echo 177d 0011 > /sys/bus/pci/drivers/vfio-pci/new_id
+         VFIO_GROUP=$(readlink /sys/bus/pci/devices/0002\:01\:00.2/iommu_group)
 
 ODP platform top-level directory also contains "bind.sh" script which can be
 used for reference and also as a handy tool which automates those steps.
 The script can be used as follows:
 
-$ ./bind.sh --help
-Usage:
-	bind.sh <DEVICE> <DRIVER>
-where:
-<DEVICE> [[[<domain>:]<bus>:]<slot>].<func>
-examples:
-Bind function 1 of the first matching device, e.g. 0002:01:00.1 to vfio-pci
-	bind.sh 1 vfio-pci
-Bind device 01:00.2 of the first matching domain, e.g. 0002:01:00.2 to vfio-pci
-	bind.sh 01:00.2 vfio-pci
+         ./bind.sh --help
+        Usage:
+          bind.sh <DEVICE> <DRIVER>
+        where:
+        <DEVICE> [[[<domain>:]<bus>:]<slot>].<func>
+        examples:
+        Bind function 1 of the first matching device, e.g. 0002:01:00.1 to vfio-pci
+          bind.sh 1 vfio-pci
+        Bind device 01:00.2 of the first matching domain, e.g. 0002:01:00.2 to vfio-pci
+          bind.sh 01:00.2 vfio-pci
 
 Called without parameters it shows:
+
  - which NVIC virtual function is bound to which driver
  - does it have netdev name (e.g. eth0) in case of kernel-controlled device
  - iommu group of the device, useful for VFIO backend
 
-$ ./bind.sh
-0002:01:00.1 thunder-nicvf eth0 iommu group 36
-0002:01:00.2 vfio-pci iommu group 37
-0002:01:00.3 vfio-pci iommu group 38
-0002:01:00.4 thunder-nicvf iommu group 39
-0002:01:00.5 thunder-nicvf iommu group 40
-0002:01:00.6 thunder-nicvf iommu group 41
-0002:01:00.7 thunder-nicvf iommu group 42
-0002:01:01.0 thunder-nicvf iommu group 43
+Example:
+
+    ./bind.sh
+    0002:01:00.1 thunder-nicvf eth0 iommu group 36
+    0002:01:00.2 vfio-pci iommu group 37
+    0002:01:00.3 vfio-pci iommu group 38
+    0002:01:00.4 thunder-nicvf iommu group 39
+    0002:01:00.5 thunder-nicvf iommu group 40
+    0002:01:00.6 thunder-nicvf iommu group 41
+    0002:01:00.7 thunder-nicvf iommu group 42
+    0002:01:01.0 thunder-nicvf iommu group 43
 
 Called with VF PCI device number and driver, binds the VF device to the
 appropriate framework:
 
-$./bind.sh 5 vfio-pci
-Binding 0002:01:00.5 to vfio-pci...
-0002:01:00.5 vfio-pci
-vfio group 38
+    ./bind.sh 5 vfio-pci
+    Binding 0002:01:00.5 to vfio-pci...
+    0002:01:00.5 vfio-pci
+    vfio group 38
 
 Binding to "thunder-nicvf" brings back the device under kernel control:
 
-$./bind.sh 5 thunder-nicvf
-Binding 0002:01:00.5 to thunder-nicvf...
-0002:01:00.5 thunder-nicvf
+    ./bind.sh 5 thunder-nicvf
+    Binding 0002:01:00.5 to thunder-nicvf...
+    0002:01:00.5 thunder-nicvf
 
 PCI device numbering works as follows:
+
  * Single number means device function number,
    rest of the number is the from the first match of the device list,
    e.g. for device list:
 
-0002:01:00.1 thunder-nicvf eth0 iommu group 36
-0002:01:00.2 vfio-pci iommu group 37
-0002:01:02.0 thunder-nicvf iommu group 51
-0002:01:02.1 thunder-nicvf iommu group 52
-0002:01:02.2 thunder-nicvf iommu group 53
+        0002:01:00.1 thunder-nicvf eth0 iommu group 36
+        0002:01:00.2 vfio-pci iommu group 37
+        0002:01:02.0 thunder-nicvf iommu group 51
+        0002:01:02.1 thunder-nicvf iommu group 52
+        0002:01:02.2 thunder-nicvf iommu group 53
+   
+      number 2 means 0002:01:00.2 (appears before  0002:01:02.2).
+      This scheme is useful as by default all ethernet ports occupy 0002:01:00
+      device which is always first.
 
-   number 2 means 0002:01:00.2 (appears before  0002:01:02.2).
-   This scheme is useful as by default all ethernet ports occupy 0002:01:00
-   device which is always first.
-
- * <device><.function> works the same as above but only domain and bus is looked up on list.
- * An unambiguous way to specify device is <bus>:<device>.<function> and <domain>:<bus>:<device>.<function>
+ * `device.function` works the same as above but only domain and bus is looked up on list.
+ * An unambiguous way to specify device is bus:device.function and `domain:bus:device.function`
 
 Bellow example shows how to prepare VF's to driver binding for utilization of
 more than 8 queues per VF (also named as combined VF's).
 
-./bind.sh
-0002:01:00.1 thunder-nicvf eth4 iommu group 59
-0002:01:00.2 thunder-nicvf eth1 iommu group 60
-0002:01:00.3 thunder-nicvf eth2 iommu group 61
-0002:01:00.4 thunder-nicvf eth3 iommu group 62
-0002:01:00.5 thunder-nicvf eth0 iommu group 63
-0002:01:00.6 thunder-nicvf iommu group 64
-0002:01:00.7 thunder-nicvf iommu group 65
-0002:01:01.0 thunder-nicvf iommu group 66
-0002:01:01.1 thunder-nicvf iommu group 67
-0002:01:01.2 thunder-nicvf iommu group 68
-0002:01:01.3 thunder-nicvf iommu group 69
-0002:01:01.4 thunder-nicvf iommu group 70
+    ./bind.sh
+    0002:01:00.1 thunder-nicvf eth4 iommu group 59
+    0002:01:00.2 thunder-nicvf eth1 iommu group 60
+    0002:01:00.3 thunder-nicvf eth2 iommu group 61
+    0002:01:00.4 thunder-nicvf eth3 iommu group 62
+    0002:01:00.5 thunder-nicvf eth0 iommu group 63
+    0002:01:00.6 thunder-nicvf iommu group 64
+    0002:01:00.7 thunder-nicvf iommu group 65
+    0002:01:01.0 thunder-nicvf iommu group 66
+    0002:01:01.1 thunder-nicvf iommu group 67
+    0002:01:01.2 thunder-nicvf iommu group 68
+    0002:01:01.3 thunder-nicvf iommu group 69
+    0002:01:01.4 thunder-nicvf iommu group 70
 
 When you first run the ./bind.sh script, you will see that some of the VF's are
 assigned to kernel thunder-nicvf driver and have linux eth name assigned. Those
@@ -434,66 +490,70 @@ Therefore in mentioned example, if you would like to bind 0002:01:00.1 with some
 secondary VF, the first which you can use is 0002:01:00.6. In case of vfio,
 after bind operation you should get following state
 
-./bind.sh
-0002:01:00.1 vfio-pci iommu group 59
-0002:01:00.2 thunder-nicvf eth1 iommu group 60
-0002:01:00.3 thunder-nicvf eth2 iommu group 61
-0002:01:00.4 thunder-nicvf eth3 iommu group 62
-0002:01:00.5 thunder-nicvf eth0 iommu group 63
-0002:01:00.6 vfio-pci iommu group 64
-0002:01:00.7 thunder-nicvf iommu group 65
-0002:01:01.0 thunder-nicvf iommu group 66
-0002:01:01.1 thunder-nicvf iommu group 67
-0002:01:01.2 thunder-nicvf iommu group 68
-0002:01:01.3 thunder-nicvf iommu group 69
+    ./bind.sh
+    0002:01:00.1 vfio-pci iommu group 59
+    0002:01:00.2 thunder-nicvf eth1 iommu group 60
+    0002:01:00.3 thunder-nicvf eth2 iommu group 61
+    0002:01:00.4 thunder-nicvf eth3 iommu group 62
+    0002:01:00.5 thunder-nicvf eth0 iommu group 63
+    0002:01:00.6 vfio-pci iommu group 64
+    0002:01:00.7 thunder-nicvf iommu group 65
+    0002:01:01.0 thunder-nicvf iommu group 66
+    0002:01:01.1 thunder-nicvf iommu group 67
+    0002:01:01.2 thunder-nicvf iommu group 68
+    0002:01:01.3 thunder-nicvf iommu group 69
 
 You can now use vfio group 59 and 64 for combined VF.
 
 
 USAGE EXAMPLES
+==============
 
 ODP platform has 2 example applications, which can be used out of the box for ODP ThunderX evaluation:
+
  * l2fwd - simple l2 forwarding
  * pktgen - traffic sniffer and generator
 
 To get help:
 
-$ ./test/performance/odp_l2fwd
-$ ./example/pktgen/pktgen
+         ./test/performance/odp_l2fwd
+         ./example/pktgen/pktgen
 
 We do not recommend use of examples/generator/odp_generator as it is not well implemented and obsolete.
 
---= pktgen =--
+pktgen
+------
 
 Passive receive using VFIO group 30
 
-$ ./example/pktgen/pktgen -i vfio:30 -m r
+         ./example/pktgen/pktgen -i vfio:30 -m r
 
 Generating traffic using VFIO group 59
 
-$ ./example/pktgen/pktgen -I vfio:59 --srcmac 02:01:01:01:01:01 --dstmac 02:01:01:01:01:02 --srcip 192.168.0.1 --dstip 192.168.0.2 -s 0 -m s -n 11
+         ./example/pktgen/pktgen -I vfio:59 --srcmac 02:01:01:01:01:01 --dstmac 02:01:01:01:01:02 --srcip 192.168.0.1 --dstip 192.168.0.2 -s 0 -m s -n 11
 
---= l2fwd =--
+l2fwd
+-----
 
 Echoing packets to the same port with 2 cores:
 
-$ ./test/performance/l2fwd/odp_l2fwd -i vfio:30 -m 0 -c 2
+         ./test/performance/l2fwd/odp_l2fwd -i vfio:30 -m 0 -c 2
 
 Forwarding packets between two ports bound to vfio:30 and vfio:31 with 2 cores
 
-$ ./test/performance/l2fwd/odp_l2fwd -i vfio:30,vfio:31 -m 0 -c 2
+         ./test/performance/l2fwd/odp_l2fwd -i vfio:30,vfio:31 -m 0 -c 2
 
 Forwarding packets between queues on single pktio interface (loopback) bound to compined VF's with 16 queues
 (iommu groups 59, 64) using 16 cores (one worker per queue):
 
-$ ./test/performance/l2fwd/odp_l2fwd -i vfio:59.64 -c 16 -m 0
+         ./test/performance/l2fwd/odp_l2fwd -i vfio:59.64 -c 16 -m 0
 
 
 ARCHITECTURE NOTES
+==================
 
-
---= ThunderX VNIC driver for Linux =--
-
+ThunderX VNIC driver for Linux
+--------------------------------
 
 ThunderX VNIC driver is implemented in two parts: Physical function (PF) and Virtual Functions (VF). This driver can be
 found at drivers/net/ethernet/cavium/thunder/ in kernel tree.
@@ -516,7 +576,9 @@ driver which allows that kind of access. This can be done either by uio or vfio
 modules.
 
 
---= ODP ThunderX platform software architecture =--
+ODP ThunderX platform software architecture
+---------------------------------------------
+
 
 ODP ThunderX port has following naming convention for source files:
 
@@ -526,35 +588,38 @@ ODP ThunderX port has following naming convention for source files:
 ODP ThunderX port was based on linux-generic, customized to meet the platform
 requirements and optimized for performance.
 
---= Low-level VNIC driver =--
+Low-level VNIC driver 
+----------------------
 
 The driver is a series of functions operating on ThunderX VNIC hardware
 resources. This driver has following areas of integration with ODP and platform
 layers:
 
- * packet data structure
-   - shared with ODP and higher layers
+  * packet data structure
+    - shared with ODP and higher layers
 
- * PCI device attachment, e.g mapping BARs
-   - VFIO framework, no exposure to higher layers
+  * PCI device attachment, e.g mapping BARs
+    - VFIO framework, no exposure to higher layers
 
- * physical memory allocator - odp_shared_memory.c
-   - provides physically and virtually contiguous memory regions
-   - provides physical addresses for allocated regions
-   - intended for global allocations done only once
-   - no need for high performance implementation
-   - used at the beginning of ODP startup
-   - used by odp_pktio_open to allocate all necessary memory regions
+  * physical memory allocator - odp_shared_memory.c
+    - provides physically and virtually contiguous memory regions
+    - provides physical addresses for allocated regions
+    - intended for global allocations done only once
+    - no need for high performance implementation
+    - used at the beginning of ODP startup
+    - used by odp_pktio_open to allocate all necessary memory regions
 
- * packet memory allocator - odp_buffer_pool.c
-   - allocates memory from physical allocator
-   - keeps packets in SMP-safe memory pool
-   - converts between virtual and physical addresses
+  * packet memory allocator - odp_buffer_pool.c
+    - allocates memory from physical allocator
+    - keeps packets in SMP-safe memory pool
+    - converts between virtual and physical addresses
 
- * malloc-like allocator for various data structures
-   - reused physical allocator
+  * malloc-like allocator for various data structures
+    - reused physical allocator
 
---= Physical memory allocator =--
+Physical memory allocator
+-------------------------
+
 
 Userspace programs do not have access do physical memory by standard means, however:
 
@@ -585,15 +650,18 @@ Implementation notes:
    pktios opened on the same interface. Each pktio is using one RBDR, SQ and RQ
    queue (look for SND_QUEUE_LEN, RCV_BUF_COUNT and odp_pool_create()).
 
---= Packet pool =--
+Packet pool
+------------------
 
 Packet is a chain of buffers of constant size. Each buffer should be big enough
 to store:
+
  - whole MTU (1500 B)
  - metadata, currently 128 B
  - additional headroom at the beginning, if required, configured to 128 B
 
 Packets received from HW can form chains if:
+
  - S/W is using Jumbo frames from time to time but tries to save memory
  - S/W is using TCP offloads provided by ThunderX VNIC. Currently not supported.
  - It is recommended to adjuct the basic buffer size if Jumbo frames are to be
@@ -605,6 +673,7 @@ Thunder-88x, so 128B is a minimal memory occupation for packet metadata.
 Headroom can be 0.
 
 Memory pool consists of:
+
  - global multi-producer - multi-consumer buffer ring
  - thread-local cache implemented as table (stack) of 4096 entries
 
@@ -614,11 +683,14 @@ guarantee that cached packets return to global pool. The pool operates optimally
 when allocations are done in bulk, since it amortizes memory barrier costs for
 global pool.
 
---= Packet IO implementation notes. =--
+Packet IO implementation notes
+------------------------------
+
 
 Packet IO is optimized for bulk transmit/receive.
 For highest performance it is recommended to process packets in batches of 32 or 64.
 Packet can be received/sent by two access methods provided by ODP API:
+
  * Raw pktio method (optimized for DIRECT pktio mode)
    - odp_pktout_send and odp_pktin_recv, both were optimized with
      ODP_PKTOUT_MODE_DIRECT and ODP_PKTOUT_MODE_DIRECT respectively
@@ -634,29 +706,31 @@ Packet can be received/sent by two access methods provided by ODP API:
    - allows easier application design while using many threads for processing
    - ordering is guaranteed by queue type while using odp_schedule()
 
---= Caveats =--
+Caveats
+-----------
 
-1. VNIC hardware should be always reset at application exit to keep the system
-   stable.
 
-H/W reset is done in odp_pktio_close(), so software should always call it before
-termination. Moreover, the application should strive to provide an exit handler
-for most common signals, e.g. SIGTERM, SIGINT. The odp_l2fwd.c example file
-contains such handler for reference.
+1.  VNIC hardware should be always reset at application exit to keep the system
+    stable.
 
-Sudden application crash leaving H/W in undefined state may cause issues with
-subsequent launching the app. In that case, several retries should bring the H/W
-back.
+    H/W reset is done in odp_pktio_close(), so software should always call it before
+    termination. Moreover, the application should strive to provide an exit handler
+    for most common signals, e.g. SIGTERM, SIGINT. The odp_l2fwd.c example file
+    contains such handler for reference.
 
-2. Sudden application exit may lead to random-writer scenario and can crash
+    Sudden application crash leaving H/W in undefined state may cause issues with
+    subsequent launching the app. In that case, several retries should bring the H/W
+    back.
+
+2.  Sudden application exit may lead to random-writer scenario and can crash
 subsequent application launches or other software.
 
-When the application suddenly crashes, e.g. by SIGSEGV, odp_pktio_close() is not
-called and VNIC H/W still receives packets and writes to memory until it runs
-out of buffers.  Since VNIC hardware operates on physical memory, the pages used
-for packet reception can be overwritten even when they return to kernel and get
-allocated again. The best way to avoid it is to re-launch the application, which
-triggers H/W reset. Installing signal handler is the best prevention method.
+    When the application suddenly crashes, e.g. by SIGSEGV, odp_pktio_close() is not
+    called and VNIC H/W still receives packets and writes to memory until it runs
+    out of buffers.  Since VNIC hardware operates on physical memory, the pages used
+    for packet reception can be overwritten even when they return to kernel and get
+    allocated again. The best way to avoid it is to re-launch the application, which
+    triggers H/W reset. Installing signal handler is the best prevention method.
 
 
 
