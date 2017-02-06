@@ -496,6 +496,7 @@ static int nicvf_pktio_recv_lockless(pktio_entry_t *pktio_entry, int index,
 	for (i = 0; i < pkts; ++i) {
 		_pkt_table[i]->input = pktio_entry->s.handle;
 		_pkt_table[i]->buf_hdr.order = order++;
+		_pkt_table[i]->buf_hdr.origin_qe = NULL;
 	}
 
 	return (int)pkts;
