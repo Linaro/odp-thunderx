@@ -31,5 +31,6 @@ AC_LINK_IFELSE(
 m4_include([platform/linux-thunder/m4/odp_pthread.m4])
 m4_include([platform/linux-thunder/m4/odp_openssl.m4])
 m4_include([platform/linux-thunder/m4/odp_schedule.m4])
+m4_include([platform/linux-thunder/m4/cflags.m4])
 
 AC_CONFIG_FILES([platform/linux-thunder/Makefile])
