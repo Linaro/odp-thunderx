@@ -67,13 +67,42 @@ Building ODP ThunderX platform natively on Ubuntu 16.10 (arm64)
   
         apt install libcunit1-dev libssl-dev
 
-  2. Build using system libraries
+  2. Build & install using system libraries
 
-        ./configure --with-platform=linux-thunder \
-          --disable-debug-print \
-          --disable-debug \
-          CFLAGS="-O3 -static" \
-          LIBS="-ldl"
+        ./bootstrap
+        ./configure --with-platform=linux-thunder--prefix=${INSTALL_DIR}
+        make -j 4
+        make install
+
+     Note, that installing is optional as all binaries can be used 
+     from within the project tree.
+
+
+Using ThunderX GCC toolchain for native compilation
+--------------------------------------------------
+
+
+1. Download and unpack ThunderX native toolchain:
+
+        git clone git@github.com:caviumnetworks/thunderx-tools.git
+        cd thunderx-tools/thunderx-gcc_5_3-421/
+        cat thunderx-gcc-* | tar xj
+ 
+2. Add toolchain binaries from bin/ and usr/bin/ to system path:
+
+        export THUNDERX_TOOLS=/path/to/thunderx-gcc_5_3-421
+        export PATH=${THUNDERX_TOOLS}/bin:$PATH
+
+3. Add toolchain libraries to library search path:
+
+        export LD_LIBRARY_PATH=${THUNDERX_TOOLS}/lib64:$LD_LIBRARY_PATH
+
+4. Build otp-thunderx with `--host` option:
+
+        ./bootstrap
+        ./configure --host=aarch64-thunderx-linux-gnu \
+              --with-platform=linux-thunder
+         make -j 4
 
 
 BUILDING CAVIUM LINUX TREE
@@ -128,7 +157,7 @@ Using ThunderX GCC toolchain for cross-compilation
 --------------------------------------------------
 
 
-1. Download and unpack ThunderX toolchain:
+1. Download and unpack ThunderX cross-toolchain:
 
         git clone git@github.com:caviumnetworks/thunderx-tools.git
         cd thunderx-tools/thunderx-tools-421
@@ -167,11 +196,8 @@ Cross-compiling odp-thunderx
          ./bootstrap
          ./configure --host=aarch64-thunderx-linux-gnu \
               --with-platform=linux-thunder \
-              --with-openssl-path=${OPENSSL_DIR} \
-              --disable-debug-print \
-              CFLAGS="-O3 -static" \
-              LIBS="-ldl"
-         make
+              --with-openssl-path=${OPENSSL_DIR}
+         make -j 4
 
 Cross-building ODP ThunderX platform with CUnit tests
 -----------------------------------------------------
@@ -204,10 +230,15 @@ Cross-building ODP ThunderX platform with CUnit tests
 BULDING OPTIONS
 ================
 
-There are 2 environment variables controlling compilation options:
+There are 3 environment variables controlling compilation options:
 
-  - CFLAGS - for compilation options, e.g. defines, includes
-  - LDLAGS - for linker options, e.g. -ldl
+  - `CFLAGS` - for compilation options, e.g. defines, includes
+  - `LIBS` - for additional libraries, e.g. -ldl
+  - `LDFLAGS` - for linker flags
+
+Additinally, configure cript presents another option for performance-oriented builds:
+
+  * `--enable-lto` enables Link Time Optimization if toolchain can support it
 
 They can be used along with "configure" script, eg.:
 
@@ -221,26 +252,24 @@ They can be used along with "configure" script, eg.:
 
 There are 2 options controlling debug level:
   - "--enable-debug-print", "--disable-debug-print" - controls ODP internal
-    debug messages, enabled by default. It is recommended to disable this option,
+    debug messages, disabled by default. It is recommended to disable this option,
     as such verbose logging is useful only for debugging the ODP platform.
   - "--enable-debug", "--disable-debug" - controls ODP internal debug
-    assertions, enabled by default.  This option improves error diagnostics at
+    assertions, disable by default.  This option improves error diagnostics at
     the expense of slightly lower performance (c.a. 5%).
 
 For highest speed, the recommended build options are:
 
- - all debug options turned off
- - extra CFLAGS added: optimization level 3 (-O3), static linkage (-static) and link time optimization (-flto).
- - extra LIBS added: dynamic linker (-ldl) which is required by openssl library during static linkage.
+ - Cavium tollchain (either cross or native)
+ - all debug options turned off (dafault)
+ - `--enable-lto`
+
+E.g Simplest option is native build with Cavium tollchain:
 
          ./configure --prefix=${ODP_DIR} \
               --host=aarch64-thunderx-linux-gnu \
               --with-platform=linux-thunder \
-              --with-openssl-path=${OPENSSL_DIR} \
-              --disable-debug-print \
-              --disable-debug \
-              CFLAGS="-O3 -g -static -flto" \
-              LIBS="-ldl"
+              --enable-lto
 
 It is measured that link time optimization improves performance of ODP platform
 by 10%  due to aggressive inter-modular in-lining. However, this option degrades
@@ -270,7 +299,6 @@ There are several ODP ThunderX port defines which influence on compilation:
   received purely by SW. Direct usage of pktio interface is not affected.
   Classification is done only when packet are received by using odp_schedule()
    or any of odp_queue_enq/deq() functions.
-
 
 
 
