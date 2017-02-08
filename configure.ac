@@ -100,9 +100,9 @@ AC_SUBST(PKGCONFIG_VERSION)
 ##########################################################################
 AC_ARG_WITH([platform],
     [AS_HELP_STRING([--with-platform=platform],
-	[select platform to be used, default linux-generic])],
+	[select platform to be used, default linux-thunder])],
     [],
-    [with_platform=linux-generic
+    [with_platform=linux-thunder
     ])
 
 AC_SUBST([with_platform])

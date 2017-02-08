@@ -70,12 +70,12 @@ Building ODP ThunderX platform natively on Ubuntu 16.10 (arm64)
   2. Build & install using system libraries
 
         ./bootstrap
-        ./configure --with-platform=linux-thunder--prefix=${INSTALL_DIR}
+        ./configure --prefix=${INSTALL_DIR}
         make -j 4
         make install
 
      Note, that installing is optional as all binaries can be used 
-     from within the project tree.
+     from within the project tree. Thus, `--prefix` option may be skipped.
 
 
 Using ThunderX GCC toolchain for native compilation
@@ -100,8 +100,7 @@ Using ThunderX GCC toolchain for native compilation
 4. Build otp-thunderx with `--host` option:
 
         ./bootstrap
-        ./configure --host=aarch64-thunderx-linux-gnu \
-              --with-platform=linux-thunder
+        ./configure --host=aarch64-thunderx-linux-gnu
          make -j 4
 
 
@@ -195,7 +194,6 @@ Cross-compiling odp-thunderx
          cd odp-thunderx
          ./bootstrap
          ./configure --host=aarch64-thunderx-linux-gnu \
-              --with-platform=linux-thunder \
               --with-openssl-path=${OPENSSL_DIR}
          make -j 4
 
@@ -218,9 +216,7 @@ Cross-building ODP ThunderX platform with CUnit tests
          export ODP_DIR=<chose some instalation dir for ODP>
          ./configure --prefix=${ODP_DIR} \
               --host=aarch64-thunderx-linux-gnu \
-              --with-platform=linux-thunder \
               --with-openssl-path=${OPENSSL_DIR} \
-              --disable-debug-print \
               --enable-debug \
               --enable-cunit-support \
               --with-cunit-path=${CUNIT_DIR}
@@ -232,9 +228,9 @@ BULDING OPTIONS
 
 There are 3 environment variables controlling compilation options:
 
-  - `CFLAGS` - for compilation options, e.g. defines, includes
-  - `LIBS` - for additional libraries, e.g. -ldl
-  - `LDFLAGS` - for linker flags
+  * `CFLAGS` - for compilation options, e.g. defines, includes
+  * `LIBS` - for additional libraries, e.g. `-ldl`
+  * `LDFLAGS` - for linker flags, e.g. `-pie`
 
 Additinally, configure cript presents another option for performance-oriented builds:
 
@@ -244,7 +240,6 @@ They can be used along with "configure" script, eg.:
 
        ./configure --prefix=${ODP_DIR} \
             --host=aarch64-thunderx-linux-gnu \
-            --with-platform=linux-thunder \
             --with-openssl-path=${OPENSSL_DIR} \
             --disable-debug-print \
             CFLAGS="-O3 -g" \
@@ -268,7 +263,6 @@ E.g Simplest option is native build with Cavium tollchain:
 
          ./configure --prefix=${ODP_DIR} \
               --host=aarch64-thunderx-linux-gnu \
-              --with-platform=linux-thunder \
               --enable-lto
 
 It is measured that link time optimization improves performance of ODP platform
