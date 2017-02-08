@@ -1388,6 +1388,13 @@ int main(int argc, char *argv[])
 	printf("first CPU:          %i\n", odp_cpumask_first(&cpumask));
 	printf("cpu mask:           %s\n", cpumaskstr);
 
+	if (gbl_args->appl.cpu_count > num_workers) {
+		LOG_ERR("Error: There are max %d workers in the system"
+			" but supplied core count is %d\n",
+			num_workers, gbl_args->appl.cpu_count);
+		exit(EXIT_FAILURE);
+	}
+
 	/* Create packet pool */
 	odp_pool_param_init(&params);
 	params.pkt.seg_len = SHM_PKT_POOL_BUF_SIZE;
