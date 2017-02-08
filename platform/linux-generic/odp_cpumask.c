@@ -213,78 +213,27 @@ int odp_cpumask_next(const odp_cpumask_t *mask, int cpu)
 			return cpu;
 	return -1;
 }
-
 /*
  * This function obtains system information specifying which cpus are
  * available at boot time.
  */
 static int get_installed_cpus(void)
 {
-	char *numptr;
-	char *endptr;
-	long int cpu_idnum;
-	DIR  *d;
-	struct dirent *dir;
+	size_t i;
+	cpu_set_t cpuset;
 
-	/* Clear the global cpumasks for control and worker CPUs */
 	odp_cpumask_zero(&odp_global_data.control_cpus);
 	odp_cpumask_zero(&odp_global_data.worker_cpus);
 
-	/*
-	 * Scan the /sysfs pseudo-filesystem for CPU info directories.
-	 * There should be one subdirectory for each installed logical CPU
-	 */
-	d = opendir("/sys/devices/system/cpu");
-	if (d) {
-		while ((dir = readdir(d)) != NULL) {
-			cpu_idnum = CPU_SETSIZE;
-
-			/*
-			 * If the current directory entry doesn't represent
-			 * a CPU info subdirectory then skip to the next entry.
-			 */
-			if (dir->d_type == DT_DIR) {
-				if (!strncmp(dir->d_name, "cpu", 3)) {
-					/*
-					 * Directory name starts with "cpu"...
-					 * Try to extract a CPU ID number
-					 * from the remainder of the dirname.
-					 */
-					errno = 0;
-					numptr = dir->d_name;
-					numptr += 3;
-					cpu_idnum = strtol(numptr, &endptr,
-							   10);
-					if (errno || (endptr == numptr))
-						continue;
-				} else {
-					continue;
-				}
-			} else {
-				continue;
-			}
-			/*
-			 * If we get here the current directory entry specifies
-			 * a CPU info subdir for the CPU indexed by cpu_idnum.
-			 */
-
-			/* Track number of logical CPUs discovered */
-			if (odp_global_data.num_cpus_installed <
-			    (int)(cpu_idnum + 1))
-				odp_global_data.num_cpus_installed =
-						(int)(cpu_idnum + 1);
-
-			/* Add the CPU to our default cpumasks */
-			odp_cpumask_set(&odp_global_data.control_cpus,
-					(int)cpu_idnum);
-			odp_cpumask_set(&odp_global_data.worker_cpus,
-					(int)cpu_idnum);
-		}
-		closedir(d);
-		return 0;
-	} else {
+	if (pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset))
 		return -1;
-	}
+	for (i = 0; i < CPU_SETSIZE; i++)
+		if (CPU_ISSET(i, &cpuset)) {
+			odp_cpumask_set(&odp_global_data.control_cpus, (int)i);
+			odp_cpumask_set(&odp_global_data.worker_cpus, (int)i);
+		}
+	odp_global_data.num_cpus_installed = CPU_COUNT(&cpuset);
+	return 0;
 }
 
 /*
@@ -320,7 +269,7 @@ static void init_default_control_cpumask(int worker_cpus_default)
 			 * reserve remaining CPUs for workers
 			 */
 			odp_cpumask_clr(control_mask, 0);
-			for (i = 2; i < odp_global_data.num_cpus_installed; i++)
+			for (i = 2; i < CPU_SETSIZE; i++)
 				if (odp_cpumask_isset(worker_mask, i))
 					odp_cpumask_clr(control_mask, i);
 		}
@@ -329,7 +278,7 @@ static void init_default_control_cpumask(int worker_cpus_default)
 		 * The worker cpumask was specified so first ensure
 		 * the control cpumask does not overlap any worker CPUs
 		 */
-		for (i = 0; i < odp_global_data.num_cpus_installed; i++)
+		for (i = 0; i < CPU_SETSIZE; i++)
 			if (odp_cpumask_isset(worker_mask, i))
 				odp_cpumask_clr(control_mask, i);
 
@@ -389,7 +338,7 @@ static void init_default_worker_cpumask(int control_cpus_default)
 		 * The control cpumask was specified so first ensure
 		 * the worker cpumask does not overlap any control CPUs
 		 */
-		for (i = 0; i < odp_global_data.num_cpus_installed; i++)
+		for (i = 0; i < CPU_SETSIZE; i++)
 			if (odp_cpumask_isset(control_mask, i))
 				odp_cpumask_clr(worker_mask, i);
 
