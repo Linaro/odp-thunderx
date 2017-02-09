@@ -1496,7 +1496,7 @@ static int nicvf_qset_sq_alloc(struct nicvf *nic, size_t qidx, size_t desc_cnt)
 	void* virt;
 	char name[20];
 
-	sprintf(name, "%d.SQ[%zd]", qset->vf_id, qidx);
+	snprintf(name, sizeof(name), "%d.SQ[%zd]", qset->vf_id, qidx);
 
 	virt = nicvf_mem_alloc(nic, &sq->mem_desc,
 			       desc_cnt * sizeof(union sq_entry_t),
@@ -1509,7 +1509,7 @@ static int nicvf_qset_sq_alloc(struct nicvf *nic, size_t qidx, size_t desc_cnt)
 	sq->desc = virt;
 	sq->desc_cnt = desc_cnt;
 
-	sprintf(name, "%d.SQ[%zd].bufs_used", qset->vf_id, qidx);
+	snprintf(name, sizeof(name), "%d.SQ[%zd].bufs_used", qset->vf_id, qidx);
 
 	sq->bufs_used = nic_dma_alloc(
 		desc_cnt * sizeof(struct packet_hdr_t *), odp_sys_page_size(), name);
@@ -2245,9 +2245,9 @@ static int nicvf_qset_cq_alloc(struct nicvf *nic, size_t qidx, size_t desc_cnt)
 	struct queue_set *qset = &nic->qset[qidx / MAX_QUEUES_PER_QSET];
 	struct cmp_queue *cq = &(nic->qdesc.cq[qidx]);
 	void* virt;
-	char name[10];
+	char name[20];
 
-	sprintf(name, "%"PRIu8".CQ[%zd]", qset->vf_id, qidx);
+	snprintf(name, sizeof(name), "%"PRIu8".CQ[%zd]", qset->vf_id, qidx);
 
 	/* Allocate memory for RBDR descriptors */
 	virt = nicvf_mem_alloc(nic, &cq->mem_desc,
