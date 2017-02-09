@@ -72,6 +72,7 @@ typedef struct {
 	int timeout;		/**< wait time */
 	int interval;		/**< wait interval ms between sending
 				     each packet */
+	bool verbose;
 } appl_args_t;
 
 /**
@@ -592,7 +593,8 @@ void *gen_recv_thread(void *arg)
 			continue;
 
 #ifndef ODP_PKTGEN_NOT_PRINT
-		print_pkts(thr, pkt_tbl, rx_tot);
+		if (args->appl.verbose)
+			print_pkts(thr, pkt_tbl, rx_tot);
 #endif
 
 		/* Count packets with errors */
@@ -624,11 +626,11 @@ static void thr_stat_func(unsigned num_workers)
 		sleep(1);
 		sum_rx = sum_tx = 0;
 
-		for (i = 1; i <= num_workers; i++) {
+		for (i = 0; i < num_workers; i++) {
 			odp_pktio_stats_t st;
 			odp_pktio_stats(args->appl.pktio[i], &st);
 
-			stat[i].rxd = st.in_discards;
+			stat[i+1].rxd = st.in_discards;
 		}
 
 		/* TODO: alarm instead of sleep or adjust sleep for
@@ -889,6 +891,7 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 		{"count", required_argument, NULL, 'n'},
 		{"timeout", required_argument, NULL, 't'},
 		{"interval", required_argument, NULL, 'i'},
+		{"verbose", no_argument, NULL, 'v'},
 		{"help", no_argument, NULL, 'h'},
 		{NULL, 0, NULL, 0}
 	};
@@ -907,6 +910,9 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 		switch (opt) {
 		case 'w':
 			appl_args->cpu_count = atoi(optarg);
+			break;
+		case 'v':
+			appl_args->verbose = true;
 			break;
 		/* parse packet-io interface names */
 		case 'I':
