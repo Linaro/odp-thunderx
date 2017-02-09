@@ -1120,11 +1120,12 @@ static int nicvf_qset_rbdr_alloc(struct nicvf *nic, size_t rbdr_idx,
 	struct queue_set *qset = &nic->qset[rbdr_idx / MAX_RBDR_PER_QSET];
 	struct rbdr *rbdr = &nic->qdesc.rbdr[rbdr_idx];
 	void* virt;
-	char name[10];
+	char name[30];
 
-	sprintf(name, "%d.RBDR[%zd]", qset->vf_id, rbdr_idx);
+	snprintf(name, sizeof(name), "%d.RBDR[%zd]", qset->vf_id, rbdr_idx);
 
-	ODP_ASSERT(0 == (buf_size % 128)); /* Buffer size has to be in multiples of 128 bytes */
+	/* Buffer size has to be in multiples of 128 bytes */
+	ODP_ASSERT(0 == (buf_size % 128));
 
 	/* Allocate memory for RBDR descriptors */
 	virt = nicvf_mem_alloc(nic, &rbdr->mem_desc,
