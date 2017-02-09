@@ -502,7 +502,7 @@ int nicvf_mbox_qset_allocate_sqs(struct nicvf *nic)
 		return -1;
 	}
 
-	ERR("SQS alloc response received qs_count=%"PRIu8"\n",
+	NFO("SQS alloc response received qs_count=%"PRIu8"\n",
 	    res.sqs_alloc.qs_count);
 
 	if (res.sqs_alloc.qs_count != nic->qset_cnt - 1) {
