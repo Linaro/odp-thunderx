@@ -108,7 +108,8 @@ struct stat {
 	volatile uint64_t rx;
 	volatile uint64_t txe;
 	volatile uint64_t rxe;
-	volatile uint64_t pad[16-4];
+	volatile uint64_t rxd;
+	volatile uint64_t pad[16-5];
 };
 
 _Static_assert(sizeof(struct stat) == 128, "struct stat must fill a cache line");
@@ -610,12 +611,11 @@ void *gen_recv_thread(void *arg)
 	return arg;
 }
 
-void odp_pktio_stats_dump(odp_pktio_t id);
 static void thr_stat_func(unsigned num_workers)
 {
 	struct stat *s0, *s1, *tmp;
 	unsigned i;
-	uint64_t rx, tx, rxe, txe;
+	uint64_t rx, tx, rxe, txe, rxd;
 	uint64_t sum_rx, sum_tx;
 
 	s0 = stat0;
@@ -623,23 +623,30 @@ static void thr_stat_func(unsigned num_workers)
 	while (glob_work) {
 		sleep(1);
 		sum_rx = sum_tx = 0;
+
+		for (i = 1; i <= num_workers; i++) {
+			odp_pktio_stats_t st;
+			odp_pktio_stats(args->appl.pktio[i], &st);
+
+			stat[i].rxd = st.in_discards;
+		}
+
 		/* TODO: alarm instead of sleep or adjust sleep for
 		printf time */
 		memcpy(s1+1, stat+1, num_workers * sizeof(struct stat));
-		printf("thr%12s%12s%12s%12s\n","tx","txe","rx","rxe");
+
+		printf("thr%12s%12s%12s%12s%12s\n","tx","txe","rx","rxe","rxd");
 		for (i = 1; i <= num_workers; i++) {
 			tx = s1[i].tx - s0[i].tx;
 			txe = s1[i].txe - s0[i].txe;
 			sum_tx += tx;
 			rx = s1[i].rx - s0[i].rx;
 			rxe = s1[i].rxe - s0[i].rxe;
+			rxd = s1[i].rxd - s0[i].rxd;
 			sum_rx += rx;
-			printf("%3u%12lu%12lu%12lu%12lu\n", i, tx, txe, rx, rxe);
+			printf("%3u%12lu%12lu%12lu%12lu%12lu\n", i, tx, txe, rx, rxe, rxd);
 		}
 		printf("SUM TX %lu RX %lu\n", sum_tx, sum_rx);
-
-		for (i = 0; i < args->appl.if_count; ++i)
-			odp_pktio_stats_dump(args->appl.pktio[i]);
 
 		/* Swap stats */
 		tmp = s1; s1 = s0; s0 = tmp;
