@@ -1092,6 +1092,8 @@ static void usage(char *progname)
 	       "\n"
 	       "Mandatory OPTIONS:\n"
 	       "  -I, --interface Eth interfaces (comma-separated, no spaces)\n"
+	       "  -w, --workers number of worker threads\n"
+	       "  -v, --verbose verbose mode\n"
 	       "  -a, --srcmac src mac address\n"
 	       "  -b, --dstmac dst mac address\n"
 	       "  -c, --srcip src ip address\n"
