@@ -46,8 +46,8 @@
 #include <odp_posix_extensions.h>
 #include <odp_packet_io_internal.h>
 #include <odp_packet_internal.h>
-#include <odp_packet_io_internal.h>
 #include <odp_pool_internal.h>
+
 
 #include <thunder/nicvf/nic_uio.h>
 #include <thunder/nicvf/nic_vfio.h>
@@ -335,10 +335,25 @@ static int nicvf_pktio_stop(pktio_entry_t *pktio_entry)
 static int nicvf_pktio_stats(pktio_entry_t *pktio_entry,
 			     odp_pktio_stats_t *stats)
 {
-	/* TODO PKTIO: implement pktio callback */
-	(void) pktio_entry;
-	(void) stats;
-	return -1;
+	pkt_nicvf_t *pkt_nicvf = &pktio_entry->s.pkt_nicvf;
+	struct nicvf *nic = &pkt_nicvf->nicvf;
+	struct hw_stats_t hw;
+
+	nicvf_stathw_get(&nic->qset[0], &hw);
+
+	stats->in_octets = hw.rx_bytes_ok;
+	stats->in_ucast_pkts = hw.rx_ucast_frames_ok;
+	stats->in_discards = hw.rx_drop_overrun + hw.rx_drop_red +
+				hw.rx_drop_bcast + hw.rx_drop_mcast +
+				hw.rx_drop_l3_mcast + hw.rx_drop_l3_bcast;
+	stats->in_errors = hw.rx_l2_errors + hw.rx_fcs_errors;
+	stats->in_unknown_protos = 0;
+	stats->out_octets = hw.tx_bytes_ok;
+	stats->out_ucast_pkts = hw.tx_ucast_frames_ok;
+	stats->out_discards = hw.tx_drops;
+	stats->out_errors = 0;
+
+	return 0;
 }
 
 static int nicvf_pktio_stats_reset(pktio_entry_t *pktio_entry)

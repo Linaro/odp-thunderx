@@ -307,48 +307,7 @@ void nicvf_dump_regs(struct nicvf *nic)
 	}
 }
 
-#ifdef NIC_QUEUE_STATS
-static void nicvf_stathw_diff(struct hw_stats_t * __restrict__ old_stats,
-			      struct hw_stats_t * __restrict__ new_stats)
-{
-	size_t qirem;
-
-	old_stats->rx_bytes_ok =		new_stats->rx_bytes_ok		- old_stats->rx_bytes_ok;
-	old_stats->rx_ucast_frames_ok =		new_stats->rx_ucast_frames_ok	- old_stats->rx_ucast_frames_ok;
-	old_stats->rx_bcast_frames_ok =		new_stats->rx_bcast_frames_ok	- old_stats->rx_bcast_frames_ok;
-	old_stats->rx_mcast_frames_ok =		new_stats->rx_mcast_frames_ok	- old_stats->rx_mcast_frames_ok;
-	old_stats->rx_fcs_errors =		new_stats->rx_fcs_errors	- old_stats->rx_fcs_errors;
-	old_stats->rx_l2_errors =		new_stats->rx_l2_errors		- old_stats->rx_l2_errors;
-	old_stats->rx_drop_red =		new_stats->rx_drop_red		- old_stats->rx_drop_red;
-	old_stats->rx_drop_red_bytes =		new_stats->rx_drop_red_bytes	- old_stats->rx_drop_red_bytes;
-	old_stats->rx_drop_overrun =		new_stats->rx_drop_overrun	- old_stats->rx_drop_overrun;
-	old_stats->rx_drop_overrun_bytes =	new_stats->rx_drop_overrun_bytes- old_stats->rx_drop_overrun_bytes;
-	old_stats->rx_drop_bcast =		new_stats->rx_drop_bcast	- old_stats->rx_drop_bcast;
-	old_stats->rx_drop_mcast =		new_stats->rx_drop_mcast	- old_stats->rx_drop_mcast;
-	old_stats->rx_drop_l3_bcast =		new_stats->rx_drop_l3_bcast	- old_stats->rx_drop_l3_bcast;
-	old_stats->rx_drop_l3_mcast =		new_stats->rx_drop_l3_mcast	- old_stats->rx_drop_l3_mcast;
-	old_stats->tx_bytes_ok =		new_stats->tx_bytes_ok		- old_stats->tx_bytes_ok;
-	old_stats->tx_ucast_frames_ok =		new_stats->tx_ucast_frames_ok	- old_stats->tx_ucast_frames_ok;
-	old_stats->tx_bcast_frames_ok =		new_stats->tx_bcast_frames_ok	- old_stats->tx_bcast_frames_ok;
-	old_stats->tx_mcast_frames_ok =		new_stats->tx_mcast_frames_ok	- old_stats->tx_mcast_frames_ok;
-	old_stats->tx_drops =			new_stats->tx_drops		- old_stats->tx_drops;
-	for (qirem = 0; qirem < MAX_QUEUES_PER_QSET; qirem++) {
-		struct rq_hw_stats_t * __restrict__ old_rq_stats =
-			&old_stats->rq_hw_stats[qirem];
-		struct sq_hw_stats_t * __restrict__ old_sq_stats =
-			&old_stats->sq_hw_stats[qirem];
-		struct rq_hw_stats_t * __restrict__ new_rq_stats =
-			&new_stats->rq_hw_stats[qirem];
-		struct sq_hw_stats_t * __restrict__ new_sq_stats =
-			&new_stats->sq_hw_stats[qirem];
-		old_rq_stats->bytes = new_rq_stats->bytes - old_rq_stats->bytes;
-		old_rq_stats->pkts = new_rq_stats->pkts - old_rq_stats->pkts;
-		old_sq_stats->bytes = new_sq_stats->bytes - old_sq_stats->bytes;
-		old_sq_stats->pkts = new_sq_stats->pkts - old_sq_stats->pkts;
-	}
-}
-
-static void nicvf_stathw_get(
+void nicvf_stathw_get(
 	struct queue_set *qset, struct hw_stats_t * __restrict__ stats)
 {
 	struct nicvf *nic = qset->nic;
@@ -387,6 +346,47 @@ static void nicvf_stathw_get(
 		rq_stats->pkts = GET_RQ_STATS(nic, qbase_idx + qirem, RQ_SQ_STATS_PKTS);
 		sq_stats->bytes = GET_SQ_STATS(nic, qbase_idx + qirem, RQ_SQ_STATS_OCTS);
 		sq_stats->pkts = GET_SQ_STATS(nic, qbase_idx + qirem, RQ_SQ_STATS_PKTS);
+	}
+}
+
+#ifdef NIC_QUEUE_STATS
+static void nicvf_stathw_diff(struct hw_stats_t * __restrict__ old_stats,
+			      struct hw_stats_t * __restrict__ new_stats)
+{
+	size_t qirem;
+
+	old_stats->rx_bytes_ok =		new_stats->rx_bytes_ok		- old_stats->rx_bytes_ok;
+	old_stats->rx_ucast_frames_ok =		new_stats->rx_ucast_frames_ok	- old_stats->rx_ucast_frames_ok;
+	old_stats->rx_bcast_frames_ok =		new_stats->rx_bcast_frames_ok	- old_stats->rx_bcast_frames_ok;
+	old_stats->rx_mcast_frames_ok =		new_stats->rx_mcast_frames_ok	- old_stats->rx_mcast_frames_ok;
+	old_stats->rx_fcs_errors =		new_stats->rx_fcs_errors	- old_stats->rx_fcs_errors;
+	old_stats->rx_l2_errors =		new_stats->rx_l2_errors		- old_stats->rx_l2_errors;
+	old_stats->rx_drop_red =		new_stats->rx_drop_red		- old_stats->rx_drop_red;
+	old_stats->rx_drop_red_bytes =		new_stats->rx_drop_red_bytes	- old_stats->rx_drop_red_bytes;
+	old_stats->rx_drop_overrun =		new_stats->rx_drop_overrun	- old_stats->rx_drop_overrun;
+	old_stats->rx_drop_overrun_bytes =	new_stats->rx_drop_overrun_bytes- old_stats->rx_drop_overrun_bytes;
+	old_stats->rx_drop_bcast =		new_stats->rx_drop_bcast	- old_stats->rx_drop_bcast;
+	old_stats->rx_drop_mcast =		new_stats->rx_drop_mcast	- old_stats->rx_drop_mcast;
+	old_stats->rx_drop_l3_bcast =		new_stats->rx_drop_l3_bcast	- old_stats->rx_drop_l3_bcast;
+	old_stats->rx_drop_l3_mcast =		new_stats->rx_drop_l3_mcast	- old_stats->rx_drop_l3_mcast;
+	old_stats->tx_bytes_ok =		new_stats->tx_bytes_ok		- old_stats->tx_bytes_ok;
+	old_stats->tx_ucast_frames_ok =		new_stats->tx_ucast_frames_ok	- old_stats->tx_ucast_frames_ok;
+	old_stats->tx_bcast_frames_ok =		new_stats->tx_bcast_frames_ok	- old_stats->tx_bcast_frames_ok;
+	old_stats->tx_mcast_frames_ok =		new_stats->tx_mcast_frames_ok	- old_stats->tx_mcast_frames_ok;
+	old_stats->tx_drops =			new_stats->tx_drops		- old_stats->tx_drops;
+	for (qirem = 0; qirem < MAX_QUEUES_PER_QSET; qirem++) {
+		struct rq_hw_stats_t * __restrict__ old_rq_stats =
+			&old_stats->rq_hw_stats[qirem];
+		struct sq_hw_stats_t * __restrict__ old_sq_stats =
+			&old_stats->sq_hw_stats[qirem];
+		struct rq_hw_stats_t * __restrict__ new_rq_stats =
+			&new_stats->rq_hw_stats[qirem];
+		struct sq_hw_stats_t * __restrict__ new_sq_stats =
+			&new_stats->sq_hw_stats[qirem];
+		old_rq_stats->bytes = new_rq_stats->bytes - old_rq_stats->bytes;
+		old_rq_stats->pkts = new_rq_stats->pkts - old_rq_stats->pkts;
+		old_sq_stats->bytes = new_sq_stats->bytes - old_sq_stats->bytes;
+		old_sq_stats->pkts = new_sq_stats->pkts - old_sq_stats->pkts;
 	}
 }
 
