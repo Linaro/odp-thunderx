@@ -983,7 +983,7 @@ static int nicvf_rbdr_poll_reg(
 		nanosleep(&(struct timespec) {0, 1000000}, NULL);
 		timeout--;
 	}
-	ERR("Poll on reg 0x%"PRIx64" failed\n", offset);
+	DBGV1("Poll on reg 0x%"PRIx64" failed\n", offset);
 	return -1;
 }
 
@@ -1348,17 +1348,29 @@ static int nicvf_qset_rbdr_precharge(struct nicvf *nic, size_t rbdr_idx)
 
 static int nicvf_qset_rbdr_reset(struct nicvf *nic, size_t rbdr_idx)
 {
-	nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG, NICVF_RBDR_RESET);
+	uint64_t status;
 
-	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0, 62, 2, 0x02)) {
-		DBGV1("Error while polling on RBDR STATUS0 = reset\n");
+	/* read the current status */
+	status = nicvf_rbdr_reg_read(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0);
+	status = (status & RBDR_FIFO_STATE_MASK) >> RBDR_FIFO_STATE_SHIFT;
+	/* reset the RBDR */
+	nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG,
+			     NICVF_RBDR_RESET);
+	/* Pool for RESET state only in case we where in FAIL state (HW bug) */
+	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0,
+				RBDR_FIFO_STATE_SHIFT, 0x02,
+				(RBDR_FIFO_STATE_ACTIVE == status) ?
+					RBDR_FIFO_STATE_INACTIVE :
+					RBDR_FIFO_STATE_RESET)) {
+		ERR("Error while polling on RBDR STATUS0 = reset\n");
 		return -1;
 	}
 
 	nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG, 0x00);
-
-	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0, 62, 2, 0x00)) {
-		DBGV1("Error while polling on RBDR STATUS0 = inactive\n");
+	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0,
+				RBDR_FIFO_STATE_SHIFT, 0x02,
+				RBDR_FIFO_STATE_INACTIVE)) {
+		ERR("Error while polling on RBDR STATUS0 = inactive\n");
 		return -1;
 	}
 
@@ -1376,12 +1388,15 @@ static int nicvf_qset_rbdr_reclaim(struct nicvf *nic, size_t rbdr_idx)
 	status = nicvf_rbdr_reg_read(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0);
 	status = (status & RBDR_FIFO_STATE_MASK) >> RBDR_FIFO_STATE_SHIFT;
 	if (RBDR_FIFO_STATE_FAIL == status) {
-	       nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG, NICVF_RBDR_RESET);
+	       nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG,
+				    NICVF_RBDR_RESET);
 	}
 
 	/* Disable RBDR */
 	nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG, 0);
-	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0, 62, 2, 0x00)) {
+	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0,
+				RBDR_FIFO_STATE_SHIFT, 0x02,
+				RBDR_FIFO_STATE_INACTIVE)) {
 		ERR("Error while polling on RBDR STATUS0 register after disable\n");
 		return -1;
 	}
@@ -1450,7 +1465,8 @@ static int nicvf_qset_rbdr_config(struct nicvf *nic, size_t rbdr_idx, bool enabl
 	    rbdr_idx, head, tail);
 
 	if ((head | tail) != 0) {
-		ERR("Error intializing RBDR ring\n");
+		ERR("Error intializing RBDR ring rbdr_idx=%zu head=%"PRIu64" tail=%"PRIu64"\n",
+		    rbdr_idx, head, tail);
 		return -1;
 	}
 
