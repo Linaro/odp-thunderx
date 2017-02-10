@@ -354,11 +354,12 @@ struct cq_stats_t {
 struct cmp_queue {
 	struct mem_desc mem_desc;
 	union cq_entry_t  *desc; /* copy of cq->mem_desc.base, pointer to CQE's table */
-	uint64_t	prod_tail;
-	struct lockfree_ring cons;
-	uint64_t	rbdr_refill_mark;
-	uint64_t	desc_cnt;
-	bool		enable;
+	uint32_t	prod_tail;        /* SW shadow for HW CQ_TAIL */
+	struct lockfree_scatt_ring cons;  /* lockfree consumer ring indexes */
+	uint32_t	rbdr_refill_mark; /* monotonix index of last rbdr refill
+					     updated from cons.tail.membuf */
+	uint32_t	desc_cnt;
+	bool		enable:1;
 
 	struct cq_stats_t stats[ODP_THREAD_COUNT_MAX];
 
@@ -524,9 +525,10 @@ size_t nicvf_xmit(
 size_t nicvf_recv(
 	struct nicvf *nic, size_t qidx, struct packet_hdr_t *pkt_table[],
 	size_t budget, uint64_t *order);
-size_t nicvf_qset_cq_handler(struct nicvf *nic, size_t qidx,
-			     struct packet_hdr_t* pkt_table[], uint64_t budget,
-			     uint64_t *seg_cnt_ret);
+size_t nicvf_qset_cq_handler(
+	struct nicvf *nic, size_t qidx,
+	struct packet_hdr_t* pkt_table[], uint32_t budget,
+	union scatt_idx *last_idx);
 size_t nicvf_qset_rbdr_handler(struct nicvf *nic, size_t rbdr_idx, size_t qidx, uint64_t free_cnt);
 void nicvf_print_queue_stats(struct nicvf *nic);
 void nicvf_stathw_get(struct queue_set *qset, struct hw_stats_t * __restrict__ stats);

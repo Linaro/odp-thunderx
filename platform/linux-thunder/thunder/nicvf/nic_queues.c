@@ -2089,7 +2089,7 @@ static void nicvf_qset_rq_handler_pkterror(
 	}
 }
 
-static void OPTIMIZATION_RECV nicvf_qset_rq_handler_fixaddr_prefetch(
+static size_t OPTIMIZATION_RECV nicvf_qset_rq_handler_fixaddr_prefetch(
 	struct nicvf * const nic,
 	struct cqe_rx_t * const cqe_rx,
 	odp_shm_t pool_buffer_shm,
@@ -2148,6 +2148,8 @@ static void OPTIMIZATION_RECV nicvf_qset_rq_handler_fixaddr_prefetch(
 			rb_ptr[seg_i] = (uint64_t)buf;
 		} while (++seg_i < seg_cnt);
 	}
+
+	return seg_cnt;
 }
 
 static struct packet_hdr_t* OPTIMIZATION_RECV nicvf_qset_rq_handler_retpkt(
@@ -2259,8 +2261,8 @@ static int nicvf_qset_cq_alloc(struct nicvf *nic, size_t qidx, size_t desc_cnt)
 	cq->desc = virt;
 	cq->desc_cnt = desc_cnt;
 	cq->prod_tail = 0;
-	cq->cons.head = 0;
-	cq->cons.tail = 0;
+	cq->cons.head.val = 0;
+	cq->cons.tail.val = 0;
 	cq->rbdr_refill_mark = 0;
 
 	return 0;
@@ -2321,8 +2323,9 @@ static int nicvf_qset_cq_config(struct nicvf *nic, size_t qidx, bool enable)
 	ODP_ASSERT(head == 0);
 
 	cq->prod_tail = 0;
-	cq->cons.head = 0;
-	cq->cons.tail = 0;
+	cq->cons.head.val = 0;
+	cq->cons.tail.val = 0;
+	cq->rbdr_refill_mark = 0;
 
 	/* Enable Completion queue */
 	cq_cfg = (struct cq_cfg) {
@@ -2365,8 +2368,8 @@ static void OPTIMIZATION_RECV nicvf_qset_cq_handler_stats(
 /* Process the CQ recently updated/given by HW */
 size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 	struct nicvf *nic, size_t qidx,
-	struct packet_hdr_t* pkt_table[], uint64_t budget,
-	uint64_t *cq_tail)
+	struct packet_hdr_t* pkt_table[], uint32_t budget,
+	union scatt_idx *last_idx)
 {
 	struct cmp_queue * const __restrict__ cq = &(nic->qdesc.cq[qidx]);
 	union cq_entry_t * const __restrict__ desc = cq->desc;
@@ -2377,14 +2380,17 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 		&nic->qdesc.cq[qidx].stats[odp_thread_id()];
 #endif
 	struct pool_entry_s * const pool = nicvf_get_pool(nic);
-	uint64_t cons_head;
-	uint64_t cons_next;
-	uint64_t prod_tail;
-	uint64_t prod_tail_prev;
-	uint64_t cqe_head;
-	const uint64_t cqe_mask = cq->desc_cnt - 1;
-	uint64_t to_process;
-	uint64_t i;
+	union scatt_idx cons_head;
+	union scatt_idx cons_next;
+	union scatt_idx cons_tail;
+	uint32_t prod_tail;
+	uint32_t prod_tail_prev;
+	uint32_t hw_tail;
+	uint32_t cqe_head;
+	const uint32_t cqe_mask = cq->desc_cnt - 1;
+	uint32_t to_process;
+	uint32_t i;
+	uint32_t seg_cnt;
 
 #ifdef NIC_QUEUE_STATS
 	cq_stats->cq_handler_calls++;
@@ -2392,15 +2398,15 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 
 /* step 1 - atomic move of head - reservation (atomic move cons.head) of CQE to be handled */
 	do {
-		cons_head = __atomic_load_n(&cq->cons.head, __ATOMIC_ACQUIRE);
+		cons_head.val = __atomic_load_n(&cq->cons.head.val, __ATOMIC_ACQUIRE);
 
 		do {
-			 /* only portion of CQE will be handled (budget),
+			/* only portion of CQE will be handled (budget),
 			 * because of that there is no sense to read the HW TAIL
 			 * register each time, let use shadow-copy of last read
 			 * value and calculate the antries count on that */
 			prod_tail = __atomic_load_n(&cq->prod_tail, __ATOMIC_ACQUIRE);
-			to_process = (prod_tail - cons_head) & cqe_mask;
+			to_process = (prod_tail - cons_head.desc) & cqe_mask;
 
 /* step 1.1 - atomic update of prod.tail shadow-copy of NIC_QSET_CQ_0_7_TAIL */
 			/* if the entries count is less than current budget than
@@ -2409,7 +2415,7 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 				break; /* do not update SW shadow tail */
 
 			prod_tail_prev = prod_tail;
-			uint64_t hw_tail = nicvf_qidx_reg_read(nic, qidx, NIC_QSET_CQ_0_7_TAIL) >> 9;
+			hw_tail = nicvf_qidx_reg_read(nic, qidx, NIC_QSET_CQ_0_7_TAIL) >> 9;
 			/* tail from HW is given as modulo queue size, while SW
 			 * tail and head are keep monotonic, therefore we need
 			 * to calculate how many elements where added to queue
@@ -2417,7 +2423,7 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 			 * SW tail shadow by the same amount */
 			prod_tail += (hw_tail - prod_tail_prev) & cqe_mask;
 			/* recalculate to_process again */
-			to_process = (prod_tail - cons_head) & cqe_mask;
+			to_process = (prod_tail - cons_head.desc) & cqe_mask;
 
 /* step 1.2 when reading HW also update statistics */
 #ifdef NIC_QUEUE_STATS
@@ -2432,18 +2438,21 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 				false /* strong */, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)));
 /* end of step 1.1 */
 
-		prefetch_read_stream(&(desc[cons_head & cqe_mask])); /* prefetch to L1C since CQE's are already precharged to L2C */
+		/* prefetch CQE to L1C, they is HW assisted precharge to L2C */
+		prefetch_read_stream(&(desc[cons_head.desc & cqe_mask]));
+
 		/* in case of 0 CQE to process do not try to CAS the cons.head */
 		if (0 == to_process) {
-			*cq_tail = cons_head;
+			*last_idx = cons_head;
 			return 0;
 		}
 
 		/* limit to given budget */
 		to_process = min(to_process, budget);
-		cons_next = cons_head + to_process;
+		cons_next.desc = cons_head.desc + to_process;
+		cons_next.memseg = 0; /* not known yet, look at update of cq->cons.tail */
 	} while (unlikely(!__atomic_compare_exchange_n(
-			&cq->cons.head, &cons_head, cons_next,
+			&cq->cons.head.val, &cons_head.val, cons_next.val,
 			false /* strong */, __ATOMIC_ACQ_REL, __ATOMIC_RELAXED)));
 /* end of step 1 */
 
@@ -2452,8 +2461,9 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 	/* recalculate packet buffers pointers from CQE's but do not touch memory of packets */
 	odp_shm_t pool_buffer_shm = pool->pool_buffer_shm;
 	const size_t offset = nicvf_buffer_from_ptr_offset(pool);
-	cqe_head = cons_head & cqe_mask;
+	cqe_head = cons_head.desc & cqe_mask;
 	i = 0;
+	seg_cnt = 0;
 	do { /* to_process > 0 then so we can use do .. while */
 		cq_entry = &(desc[cqe_head]);
 		cqe_head = (cqe_head + 1) & cqe_mask;
@@ -2465,14 +2475,15 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 		 * support other types, check the git history for legacy code */
 		ODP_ASSERT(cq_entry->type.cqe_type == CQE_TYPE_RX); /* CQE other than CQE_TYPE_RX */
 
-		/* calculate buffer header address and prefetch to memory */
-		nicvf_qset_rq_handler_fixaddr_prefetch(
+		/* calculate buffer header address and prefetch to memory
+		 * accumulate number of received segments */
+		seg_cnt += nicvf_qset_rq_handler_fixaddr_prefetch(
 			nic, &cq_entry->rx_hdr, pool_buffer_shm, offset);
 
 	} while (++i < to_process);
 
 	/* all buffers are now prefetched to L1, join buffers into packets */
-	cqe_head = cons_head & cqe_mask;
+	cqe_head = cons_head.desc & cqe_mask;
 	const size_t headroom = pool->pkt_alloc.headroom;
 	i = 0;
 	do { /* to_process > 0 then so we can use do .. while */
@@ -2484,17 +2495,25 @@ size_t OPTIMIZATION_RECV nicvf_qset_cq_handler(
 /* step 3 - atomic move of consumer tail - finalization */
 	/* If there are other handling in progress that preceeded us,
 	 * we need to wait for them to complete */
-	while (unlikely(__atomic_load_n(&cq->cons.tail, __ATOMIC_ACQUIRE) != cons_head))
-		odp_cpu_pause();
+	for(;;) {
+		cons_tail.val = __atomic_load_n(&cq->cons.tail.val, __ATOMIC_ACQUIRE);
+		/* check only desc index since memseg index is used only for
+		 * purpose of segment number tracking */
+		if (likely(cons_tail.desc == cons_head.desc))
+			break;
+		odp_cpu_pause(); /* idle in case of wait cycle */
+	}
 
 	/* Ring doorbell to inform H/W to reuse processed CQEs */
 	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_CQ_0_7_DOOR, to_process);
 
-	/* Finaly we may anounce the world that we finished our work (now it is their turn) */
-	__atomic_store_n(&cq->cons.tail, cons_next, __ATOMIC_RELEASE);
+	/* Finaly we may anounce the world that we finished our work (now it is their turn)
+	 * Update the number of received segments in memseg index */
+	cons_next.memseg = cons_tail.memseg + seg_cnt;
+	__atomic_store_n(&cq->cons.tail.val, cons_next.val, __ATOMIC_RELEASE);
 
 	/* exit code */
-	*cq_tail = cons_next;
+	*last_idx = cons_next;
 	return to_process; /* work_done is the number of received packets */
 }
 
@@ -2504,18 +2523,18 @@ size_t OPTIMIZATION_RECV nicvf_recv(
 {
 	struct cmp_queue * __restrict__ cq = &(nic->qdesc.cq[qidx]);
 	size_t recv_pkts;
-	uint64_t cq_tail;
-	uint64_t rbdr_refill_mark, rbdr_refill_mark_next;
-	uint64_t to_refill;
-	uint64_t refill_cnt;
+	union scatt_idx last_idx;
+	uint32_t rbdr_refill_mark, rbdr_refill_mark_next;
+	uint32_t to_refill;
+	uint32_t refill_cnt;
 
 	/* get mark when most recent RBDR refill was done */
 	rbdr_refill_mark = __atomic_load_n(&cq->rbdr_refill_mark, __ATOMIC_ACQUIRE);
 
 	/* receive packets and get current mark of CQ (cq_tail) */
-	recv_pkts = nicvf_qset_cq_handler(nic, qidx, pkt_table, budget, &cq_tail);
+	recv_pkts = nicvf_qset_cq_handler(nic, qidx, pkt_table, budget, &last_idx);
 	/* FIXME: Account for multi-segment packets */
-	*order = cq_tail - recv_pkts;
+	*order = last_idx.desc - recv_pkts;
 
 	/* now calculate if it is the right time to refill RBDR
 	 * with cq_tail and rbdr_refill_mark we can estimate when we should try to
@@ -2524,8 +2543,9 @@ size_t OPTIMIZATION_RECV nicvf_recv(
 	 * processed buffers are temporarly stored in local-cache after being
 	 * processed and freed, and this is the fastest source of buffers used
 	 * for RBDR refill */
-	to_refill = abs_diff(cq_tail, rbdr_refill_mark);
-	if (unlikely(to_refill > RQ_HANDLE_THRESHOLD)) {
+	to_refill = abs_diff(last_idx.memseg, rbdr_refill_mark);
+	if (unlikely((recv_pkts > 0) &&
+		     (to_refill > RQ_HANDLE_THRESHOLD))) {
 
 		/* we assume that we will be able to refill whole RBDR from
 		 * local cache. Therefore we set the next mark to current +
