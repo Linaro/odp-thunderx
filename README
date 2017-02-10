@@ -136,8 +136,8 @@ Using ThunderX GCC toolchain for cross-compilation
  
 2. Add tollchain binaries from bin/ and usr/bin/ to system path:
 
-        THUNDERX_TOOLS=/path/to/thunderx-tools-421
-        PATH=${THUNDERX_TOOLS}/bin:${THUNDERX_TOOLS}/usr/bin:$PATH
+        export THUNDERX_TOOLS=/path/to/thunderx-tools-421
+        export PATH=${THUNDERX_TOOLS}/bin:${THUNDERX_TOOLS}/usr/bin:$PATH
 
 
 Cross-compiling OpenSSL
@@ -171,6 +171,7 @@ Cross-compiling odp-thunderx
               --disable-debug-print \
               CFLAGS="-O3 -static" \
               LIBS="-ldl"
+         make
 
 Cross-building ODP ThunderX platform with CUnit tests
 -----------------------------------------------------
