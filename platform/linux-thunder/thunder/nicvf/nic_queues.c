@@ -1673,12 +1673,12 @@ static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 	struct snd_queue * __restrict__ sq = &nic->qdesc.sq[qidx];
 	struct odp_buffer_hdr_t ** const __restrict__ bufs_used = sq->bufs_used;
 	union sq_entry_t * const __restrict__ desc_ptr = sq->desc;
-	union ringidx_double_t cons_head;
-	union ringidx_double_t cons_next;
-	union ringidx_double_t to_free;
-	ringidx_t hw_head;
-	const ringidx_t qlen = sq->desc_cnt;
-	const ringidx_t qlen_mask = (sq->desc_cnt - 1);
+	union scatt_idx cons_head;
+	union scatt_idx cons_next;
+	union scatt_idx to_free;
+	uint32_t hw_head;
+	const uint32_t qlen = sq->desc_cnt;
+	const uint32_t qlen_mask = (sq->desc_cnt - 1);
 #ifdef NIC_QUEUE_STATS
 	struct sq_stats_t * __restrict__ sq_stats =
 		&nic->qdesc.sq[qidx].stats[odp_thread_id()];
@@ -1698,10 +1698,10 @@ static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 			return 0;
 
 		cons_next.desc = cons_head.desc + to_free.desc;
-		/* to calculate mbuf next we need to look at last
-		 * sq.descriptor and extract the asosiated mbuf index */
-		cons_next.mbuf = desc_ptr[(hw_head - 1) & qlen_mask].gather.rsvd0 + 1;
-		to_free.mbuf = (cons_next.mbuf - cons_head.mbuf) & qlen_mask;
+		/* to calculate memseg next we need to look at last
+		 * sq.descriptor and extract the asosiated memseg index */
+		cons_next.memseg = desc_ptr[(hw_head - 1) & qlen_mask].gather.rsvd0 + 1;
+		to_free.memseg = (cons_next.memseg - cons_head.memseg) & qlen_mask;
 #ifndef NIC_SQ_NONATOMIC
 	} while (unlikely(!__atomic_compare_exchange_n(
 			&sq->cons.head.val, &cons_head.val, cons_next.val,
@@ -1711,10 +1711,10 @@ static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 	} while (0);
 #endif
 	/* just for development time .. verify that first gather descriptor
-	 * (cons_head.desc + 1) has the same mbuf idx as expected while basing
+	 * (cons_head.desc + 1) has the same memseg idx as expected while basing
 	 * on cons_head atomics */
-	ODP_ASSERT((ringidx_t)(desc_ptr[(cons_head.desc + 1) & qlen_mask].gather.rsvd0) ==
-		   (cons_head.mbuf & qlen_mask));
+	ODP_ASSERT((uint32_t)(desc_ptr[(cons_head.desc + 1) & qlen_mask].gather.rsvd0) ==
+		   (cons_head.memseg & qlen_mask));
 
 /* Step 2 - reclaim the descriptors */
 #ifdef NIC_QUEUE_STATS
@@ -1726,17 +1726,17 @@ static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 	if (likely(!(nic->cfg_flags & NICVF_CFGFLAG_NO_RECL_TX_BUFF))) {
 
 		/* Iterate from sq->head to head module q size */
-		if (unlikely((cons_head.mbuf + to_free.mbuf) & (~qlen_mask))) {
+		if (unlikely((cons_head.memseg + to_free.memseg) & (~qlen_mask))) {
 			/* buff free overlaps over ring */
-			ringidx_t first_free_cnt = qlen - cons_head.mbuf;
+			uint32_t first_free_cnt = qlen - cons_head.memseg;
 
 			free_buffers(nic, sq, first_free_cnt,
-				     &bufs_used[cons_head.mbuf]);
-			free_buffers(nic, sq, to_free.mbuf - first_free_cnt,
+				     &bufs_used[cons_head.memseg]);
+			free_buffers(nic, sq, to_free.memseg - first_free_cnt,
 				     &bufs_used[0]);
 		} else {
-			free_buffers(nic, sq, to_free.mbuf,
-				     &bufs_used[cons_head.mbuf]);
+			free_buffers(nic, sq, to_free.memseg,
+				     &bufs_used[cons_head.memseg]);
 		}
 	}
 
@@ -1755,7 +1755,7 @@ static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 /* Append an buff to a SQ for packet transfer */
 static size_t OPTIMIZATION_XMIT nicvf_qset_sq_fill_desc(
 	struct nicvf *nic,
-	struct snd_queue *sq, union ringidx_double_t head,
+	struct snd_queue *sq, union scatt_idx head,
 	struct packet_hdr_t * const *pkts, size_t pkt_cnt)
 {
 	struct pool_entry_s *pool = nicvf_get_pool(nic);
@@ -1766,9 +1766,9 @@ static size_t OPTIMIZATION_XMIT nicvf_qset_sq_fill_desc(
 	struct odp_buffer_hdr_t ** const __restrict__ bufs_used = sq->bufs_used;
 	size_t seg_cnt;
 	size_t pkt_i, seg_i;
-	const ringidx_t qlen_mask = (sq->desc_cnt - 1);
-	ringidx_t desc_idx = head.desc & qlen_mask;
-	ringidx_t buff_idx = head.mbuf & qlen_mask;
+	const uint32_t qlen_mask = (sq->desc_cnt - 1);
+	uint32_t desc_idx = head.desc & qlen_mask;
+	uint32_t buff_idx = head.memseg & qlen_mask;
 	enum nicvf_cfg_flags cfg_flags = nic->cfg_flags;
 
 	for (pkt_i = 0; likely(pkt_i < pkt_cnt); pkt_i++) {
@@ -1818,7 +1818,7 @@ static size_t OPTIMIZATION_XMIT nicvf_qset_sq_fill_desc(
 			sqe.buff[0] = 0; sqe.buff[1] = 0;
 			sqe.gather.subdesc_type = SQ_DESC_TYPE_GATHER;
 			sqe.gather.ld_type = 1;
-			sqe.gather.rsvd0 = buff_idx; /* store index to assosiated mbuf */
+			sqe.gather.rsvd0 = buff_idx; /* store index to assosiated memseg */
 			sqe.gather.size = seg->segment_len;
 
 			/* Store segment address for latter reclaim in sq_handler() */
@@ -1857,13 +1857,13 @@ static size_t OPTIMIZATION_XMIT nicvf_qset_sq_xmit(
 	struct sq_stats_t * __restrict__ sq_stats =
 		&nic->qdesc.sq[qidx].stats[odp_thread_id()];
 #endif
-	union ringidx_double_t prod_head;
-	union ringidx_double_t prod_next;
-	union ringidx_double_t free_cnt;
+	union scatt_idx prod_head;
+	union scatt_idx prod_next;
+	union scatt_idx free_cnt;
 	size_t i;
 	size_t subdesc_cnt;
 	size_t subdesc_cnt_ret;
-	const ringidx_t qlen_mask = (sq->desc_cnt - 1);
+	const uint32_t qlen_mask = (sq->desc_cnt - 1);
 
 #ifdef NIC_QUEUE_STATS
 	sq_stats->xmit_pkts_sum += pkt_cnt;
@@ -1878,19 +1878,19 @@ static size_t OPTIMIZATION_XMIT nicvf_qset_sq_xmit(
 
 /* step 1 - atomic move of head - reservation of space */
 	do {
-		union ringidx_double_t cons_tail;
+		union scatt_idx cons_tail;
 
 		prod_head.val = __atomic_load_n(&sq->prod.head.val, __ATOMIC_ACQUIRE);
 		cons_tail.val = __atomic_load_n(&sq->cons.tail.val, __ATOMIC_ACQUIRE);
 		free_cnt.desc = qlen_mask + cons_tail.desc - prod_head.desc;
-		//free_cnt.mbuf = qlen_mask + cons_tail.mbuf - prod_head.mbuf;
+		//free_cnt.memseg = qlen_mask + cons_tail.memseg - prod_head.memseg;
 		if (unlikely(subdesc_cnt + pkt_cnt > free_cnt.desc)) {
-			/* not need to check (subdesc_cnt > free_cnt.mbuf) */
+			/* not need to check (subdesc_cnt > free_cnt.memseg) */
 			*out_est_cnt = qlen_mask - free_cnt.desc;
 			return 0; /* no space in SQ to store all pkt descriptors */
 		}
 		prod_next.desc = prod_head.desc + subdesc_cnt + pkt_cnt;
-		prod_next.mbuf = prod_head.mbuf + subdesc_cnt;
+		prod_next.memseg = prod_head.memseg + subdesc_cnt;
 #ifndef NIC_SQ_NONATOMIC
 	} while (unlikely(!__atomic_compare_exchange_n(
 			&sq->prod.head.val, &prod_head.val, prod_next.val,
@@ -2143,7 +2143,6 @@ static void OPTIMIZATION_RECV nicvf_qset_rq_handler_fixaddr_prefetch(
 			}
 
 			buf = nicvf_buffer_from_ptr(virt, offset);
-			prefetch_store_keep(buf); /* prefetch buf header */
 
 			/* fix buf addr in cqe_rx */
 			rb_ptr[seg_i] = (uint64_t)buf;

@@ -266,24 +266,38 @@ struct mem_desc {
 	uint64_t	phys;
 };
 
-struct lockless_desc {
+/* Structure for multi thread lockfree ring
+ * Two of such structures are needed for multi prodicer multi consumer
+ * implementation. Both head and tail indexes are monotonic and need to be
+ * accessed with atomic operations */
+struct lockfree_ring {
 	size_t head;
 	size_t tail;
 };
 
-//typedef unsigned int uint128_t __attribute__((mode(TI)));
-typedef uint32_t ringidx_t;
-union ringidx_double_t {
+/* For some use cases we need to synchronize storage in two different lockfree
+ * rings. Such situation takes place in case of VNIC descriptors and memory
+ * buffers used for packets. We need to store/retrive two types of pointers from
+ * two different rings at the same time, but the indexes of those rings are not
+ * synchronized. This is due amount of pointers stored/retrived at each access
+ * are different. For those use cases following scattered index union is used,
+ * where two 32bit indexes are stored with one 64bit atomic operation */
+union scatt_idx {
 	struct {
-		ringidx_t desc;
-		ringidx_t mbuf;
+		uint32_t desc;
+		uint32_t memseg;
 	};
 	uint64_t val;
 };
 
-struct double_lockless_ring_t {
-	union ringidx_double_t head;
-	union ringidx_double_t tail;
+/* Structure for multi thread lockfree scattered ring.
+ * Please look at description of union scatt_idx for scattered ring.
+ * Two of such structures are needed for multi prodicer multi consumer
+ * implementation. Both head and tail indexes are monotonic and need to be
+ * accessed with atomic operations */
+struct lockfree_scatt_ring {
+	union scatt_idx head;
+	union scatt_idx tail;
 };
 
 struct rbdr_stats_t {
@@ -341,7 +355,7 @@ struct cmp_queue {
 	struct mem_desc mem_desc;
 	union cq_entry_t  *desc; /* copy of cq->mem_desc.base, pointer to CQE's table */
 	uint64_t	prod_tail;
-	struct lockless_desc cons;
+	struct lockfree_ring cons;
 	uint64_t	rbdr_refill_mark;
 	uint64_t	desc_cnt;
 	bool		enable;
@@ -370,8 +384,8 @@ struct packet_hdr_t;
 struct snd_queue {
 	union sq_entry_t *desc;
 	struct mem_desc mem_desc;
-	struct double_lockless_ring_t prod;
-	struct double_lockless_ring_t cons;
+	struct lockfree_scatt_ring prod;
+	struct lockfree_scatt_ring cons;
 	struct odp_buffer_hdr_t **bufs_used; /**< pointers to buffers used in sq */
 	uint64_t	recycle_time;
 	uint16_t	desc_cnt;
