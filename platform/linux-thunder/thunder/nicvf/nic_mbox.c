@@ -201,14 +201,16 @@ static int nicvf_mbox_send_msg_to_pf(
 
 	/* because of BUG in PF<->VF mbox design, some message transactions from
 	 * VF-> PF can be overwrited by asynchronius PF->VF messages. Therefore
-	 * in case of missing response, we need to try again */
+	 * in case of missing response, we have to try again */
 	for(try = 0; try < 3 ; try++) {
 		nicvf_mbox_send_msg_to_pf_raw(qset, mbx);
 		ret = nicvf_mbox_recv_response(qset, res);
 		if (!ret)
 			break; /* Success */
-		ERR("Missing response! Retrying MBX transaction ... %zu\n", try+1);
+		DBG("Missing response! Retrying MBX transaction ... %zu\n", try+1);
 	}
+	if (ret)
+		ERR("Missing response 3 times in row. PF not responding?\n");
 
 	return ret;
 }
