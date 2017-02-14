@@ -1349,7 +1349,7 @@ static int nicvf_qset_rbdr_precharge(struct nicvf *nic, size_t rbdr_idx)
 
 static int nicvf_qset_rbdr_reset(struct nicvf *nic, size_t rbdr_idx)
 {
-	uint64_t status;
+	uint64_t status, new_status;
 
 	/* read the current status */
 	status = nicvf_rbdr_reg_read(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0);
@@ -1357,13 +1357,19 @@ static int nicvf_qset_rbdr_reset(struct nicvf *nic, size_t rbdr_idx)
 	/* reset the RBDR */
 	nicvf_rbdr_reg_write(nic, rbdr_idx, NIC_QSET_RBDR_0_1_CFG,
 			     NICVF_RBDR_RESET);
-	/* Pool for RESET state only in case we where in FAIL state (HW bug) */
+	/* Expect for RESET state only in case we where in FAIL state */
 	if (nicvf_rbdr_poll_reg(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0,
 				RBDR_FIFO_STATE_SHIFT, 0x02,
 				(RBDR_FIFO_STATE_ACTIVE == status) ?
 					RBDR_FIFO_STATE_INACTIVE :
 					RBDR_FIFO_STATE_RESET)) {
-		ERR("Error while polling on RBDR STATUS0 = reset\n");
+		new_status = nicvf_rbdr_reg_read(nic, rbdr_idx, NIC_QSET_RBDR_0_1_STATUS0);
+		new_status = (status & RBDR_FIFO_STATE_MASK) >> RBDR_FIFO_STATE_SHIFT;
+		ERR("Error while polling on RBDR STATUS0 %d!=%"PRIu64"\n",
+		    (RBDR_FIFO_STATE_ACTIVE == status) ?
+			RBDR_FIFO_STATE_INACTIVE :
+			RBDR_FIFO_STATE_RESET,
+		    new_status);
 		return -1;
 	}
 
@@ -1536,6 +1542,12 @@ static void nicvf_qset_sq_free(struct nicvf *nic, size_t qidx)
 	nic_dma_free(sq->bufs_used);
 }
 
+static void nicvf_qset_sq_reset(struct nicvf *nic, size_t qidx)
+{
+	/* Reset send queue */
+	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_SQ_0_7_CFG, NICVF_SQ_RESET);
+}
+
 static OPTIMIZATION_XMIT size_t nicvf_qset_sq_recycle_desc(
 	struct nicvf *nic, size_t qidx);
 
@@ -1543,14 +1555,16 @@ static int nicvf_qset_sq_reclaim(struct nicvf *nic, size_t qidx)
 {
 	/* Do recycling before disable */
 	nicvf_qset_sq_recycle_desc(nic, qidx);
+
 	/* Disable send queue */
 	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_SQ_0_7_CFG, 0);
 	/* Check if SQ is stopped */
-	if (nicvf_qidx_poll_reg(nic, qidx, NIC_QSET_SQ_0_7_STATUS, 21, 1, 0x01)) {
+	if (nicvf_qidx_poll_reg(nic, qidx, NIC_QSET_SQ_0_7_STATUS,
+				SQ_ERR_STOPPED_SHIFT, 1, 0x01)) {
 		return -1;
 	}
-	/* Reset send queue */
-	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_SQ_0_7_CFG, NICVF_SQ_RESET);
+
+	nicvf_qset_sq_reset(nic, qidx);
 
 	return 0;
 }
@@ -1573,7 +1587,7 @@ static int nicvf_qset_sq_config(struct nicvf *nic, size_t qidx, bool enable)
 	}
 
 	/* Reset send queue */
-	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_SQ_0_7_CFG, NICVF_SQ_RESET);
+	nicvf_qset_sq_reset(nic, qidx);
 
 	head = nicvf_qidx_reg_read(nic, qidx, NIC_QSET_SQ_0_7_HEAD) >> 4;
 	tail = nicvf_qidx_reg_read(nic, qidx, NIC_QSET_SQ_0_7_TAIL) >> 4;
@@ -1972,6 +1986,12 @@ size_t OPTIMIZATION_XMIT nicvf_xmit(
  * Receive queue function
  * *****************************************************************************/
 
+static void nicvf_qset_rq_reset(struct nicvf *nic, size_t qidx)
+{
+	/* Disable receive queue */
+	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_RQ_0_7_CFG, 0);
+}
+
 static int nicvf_qset_rq_reclaim(struct queue_set *qset)
 {
 	return nicvf_mbox_rq_sync(qset);
@@ -1986,8 +2006,7 @@ static int nicvf_qset_rq_config(struct nicvf *nic, size_t qidx, bool enable)
 	size_t qirem = qidx % MAX_QUEUES_PER_QSET;
 	uint8_t vf_id = qset->vf_id;
 
-	/* Disable receive queue */
-	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_RQ_0_7_CFG, 0);
+	nicvf_qset_rq_reset(nic, qidx);
 
 	rq->enable = enable;
 	if (!enable) {
@@ -2279,7 +2298,7 @@ static void nicvf_qset_cq_free(struct nicvf *nic, size_t qidx)
 	nicvf_mem_free(nic, &cq->mem_desc);
 }
 
-static int nicvf_qset_cq_reclaim(struct nicvf *nic, size_t qidx)
+static void nicvf_qset_cq_reset(struct nicvf *nic, size_t qidx)
 {
 	/* Disable timer threshold (doesn't get reset upon CQ reset */
 	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_CQ_0_7_CFG2, 0);
@@ -2289,8 +2308,11 @@ static int nicvf_qset_cq_reclaim(struct nicvf *nic, size_t qidx)
 	/* Reset completion queue */
 	nicvf_qidx_reg_write(nic, qidx, NIC_QSET_CQ_0_7_CFG, NICVF_CQ_RESET);
 	/* TODO should we poll for for reset completion ? */
+}
 
-	return 0;
+static void nicvf_qset_cq_reclaim(struct nicvf *nic, size_t qidx)
+{
+	nicvf_qset_cq_reset(nic, qidx);
 }
 
 /* Updates the CQ hardware registers */
@@ -2301,7 +2323,8 @@ static int nicvf_qset_cq_config(struct nicvf *nic, size_t qidx, bool enable)
 
 	cq->enable = enable;
 	if (!enable) {
-		return nicvf_qset_cq_reclaim(nic, qidx);
+		nicvf_qset_cq_reclaim(nic, qidx);
+		return 0;
 	}
 
 	/* TODO PRIO there is some inconsistency compared to other queues ... seems that now we reset twice ... make it more consistent with other queues */
@@ -2970,6 +2993,33 @@ static void nicvf_qset_free(struct queue_set *qset)
 	     qidx++) {
 		nicvf_qset_cq_free(qset->nic, qidx);
 	}
+}
+
+int nicvf_qset_reset(struct queue_set *qset)
+{
+	size_t qidx, rbdr_idx, qset_idx;
+	qset_idx = qset->qset_idx;
+
+	for (qidx = qset_idx * MAX_QUEUES_PER_QSET;
+	     qidx < (qset_idx + 1) * MAX_QUEUES_PER_QSET;
+	     qidx++) {
+
+		nicvf_qset_rq_reset(qset->nic, qidx);
+		nicvf_qset_cq_reset(qset->nic, qidx);
+		nicvf_qset_sq_reset(qset->nic, qidx);
+
+	}
+
+	for (rbdr_idx = qset_idx * MAX_RBDR_PER_QSET;
+	     rbdr_idx < (qset_idx + 1) * MAX_RBDR_PER_QSET;
+	     rbdr_idx++) {
+		if (nicvf_qset_rbdr_reset(qset->nic, rbdr_idx)) {
+			ERR("Error while resetting %zu RBDR\n", rbdr_idx);
+			return -1;
+		}
+	}
+
+	return 0;
 }
 
 void nicvf_qset_preinit(struct queue_set *qset)

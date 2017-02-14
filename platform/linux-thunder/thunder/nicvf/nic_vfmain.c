@@ -182,13 +182,20 @@ int nicvf_open(struct nicvf *nic, const uint8_t mac[ETH_ALEN], bool set_mac)
 
 		if (qset->enable) {
 
+			qset->qset_idx = i;
+			qset->nic = nic;
+
+			/* Reset all HW blocks (only reset by registers) */
+			if (nicvf_qset_reset(qset)) {
+				ERR("Cannot reset HW!\n");
+				return -1;
+			}
+
 			/* disable and confirm all interrupts which may preserved from last
 			 * userspace session */
 			nicvf_vf_reg_write(qset, NIC_VF_ENA_W1C, NICVF_INTR_ALL_MASK);
 			nicvf_vf_reg_write(qset, NIC_VF_INT, NICVF_INTR_ALL_MASK);
 
-			qset->qset_idx = i;
-			qset->nic = nic;
 			/* housekeeping is something different than enable flag
 			 * for instance we need handle mbox before we mark qset
 			 * as enabled */

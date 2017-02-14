@@ -132,9 +132,12 @@
 #define	CQ_CQE_COUNT_MASK ((unsigned long long)0xFFFF << 0)
 #define	CQ_ERR_MASK	(CQ_WR_FULL | CQ_WR_DISABLE | CQ_WR_FAULT)
 
-#define SQ_ERR_STOPPED (1ULL << 21)
-#define SQ_ERR_SEND    (1ULL << 20)
-#define SQ_ERR_DPE     (1ULL << 19)
+#define SQ_ERR_STOPPED_SHIFT 21
+#define SQ_ERR_STOPPED (1ULL << SQ_ERR_STOPPED_SHIFT)
+#define SQ_ERR_SEND_SHIFT 20
+#define SQ_ERR_SEND    (1ULL << SQ_ERR_SEND_SHIFT)
+#define SQ_ERR_DPE_SHIFT 19
+#define SQ_ERR_DPE     (1ULL << SQ_ERR_DPE_SHIFT)
 #define SQ_ERR_MASK    (SQ_ERR_STOPPED | SQ_ERR_SEND | SQ_ERR_DPE)
 
 #define RBDR_FIFO_STATE_SHIFT 62
@@ -514,6 +517,7 @@ int nicvf_qset_rxq_disable(struct nicvf *nic, size_t qidx);
 int nicvf_qset_txq_disable(struct nicvf *nic, size_t qidx);
 int nicvf_qset_triplet_disableall(struct queue_set *qset);
 int nicvf_qset_rxqtxq_disableall(struct nicvf *nic);
+int nicvf_qset_reset(struct queue_set *qset);
 void nicvf_qset_preinit(struct queue_set *qset);
 int nicvf_qset_init(struct queue_set *qset);
 int nicvf_qset_close(struct queue_set *qset);
