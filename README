@@ -15,8 +15,8 @@ This release is compatible with following Cavium platforms:
 
   * ThunderX
     * CN88XX
-    * CN81XX
   * Octeon TX
+    * CN81XX
     * CN83XX 
 
 
@@ -29,11 +29,12 @@ Platform dependencies
 ODP ThunderX port has following additional dependencies:
 
   * Linux distributions supported (either of these):
+    * Ubuntu 16.04
     * Ubuntu 16.10
-    * Cavium embedded rootfs
   * GCC toolchain
     * ThunderX GCC toolchain. It is required for embedded rootfs
       and optional for Ubuntu distros
+    * GCC 5.4 from Ubuntu 16.04 distribution
     * GCC 6.2 from Ubuntu 16.10 distribution
   * Linux Kernel
     * Linux 4.9.x for ThunderX
@@ -84,9 +85,9 @@ Using ThunderX GCC toolchain for native compilation
 
 1. Download and unpack ThunderX native toolchain:
 
-        git clone git@github.com:caviumnetworks/thunderx-tools.git
+        git clone https://github.com/caviumnetworks/thunderx-tools.git
         cd thunderx-tools/thunderx-gcc_5_3-421/
-        cat thunderx-gcc-* | tar xj
+        cat thunderx-gcc_* | tar xj
  
 2. Add toolchain binaries from bin/ and usr/bin/ to system path:
 
@@ -113,7 +114,7 @@ Download instructions
 
 Cavium Linux tree can be downloaded from Github:
 
-    git clone git@github.com:caviumnetworks/thunderx-linux
+    git clone https://github.com/caviumnetworks/thunderx-linux
 
 
 Cross-compiling Linux Kernel for ThunderX
