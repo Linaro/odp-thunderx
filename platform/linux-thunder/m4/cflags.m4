@@ -1,7 +1,8 @@
 ##########################################################################
 # Configure default flags for the platform
 ##########################################################################
-CFLAGS="-O3 -g -static"
+CFLAGS=
+ODP_CFLAGS='-O3 -g -static $(EXTRA_CFLAGS)'
 LIBS="-ldl $LIBS"
 
 AC_MSG_CHECKING([whether CC supports -flto])
