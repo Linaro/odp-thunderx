@@ -2566,7 +2566,8 @@ size_t OPTIMIZATION_RECV nicvf_recv(
 	 * processed buffers are temporarly stored in local-cache after being
 	 * processed and freed, and this is the fastest source of buffers used
 	 * for RBDR refill */
-	to_refill = abs_diff(last_idx.memseg, rbdr_refill_mark);
+	/* This is modulo 32 bit operation */
+	to_refill = last_idx.memseg - rbdr_refill_mark;
 	if (unlikely((recv_pkts > 0) &&
 		     (to_refill > RQ_HANDLE_THRESHOLD))) {
 
