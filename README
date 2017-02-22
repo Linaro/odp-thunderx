@@ -227,11 +227,12 @@ Cross-building ODP ThunderX platform with CUnit tests
 BULDING OPTIONS
 ================
 
-There are 3 environment variables controlling compilation options:
+There are 4 environment variables controlling compilation options:
 
-  * `CFLAGS` - for compilation options, e.g. defines, includes
+  * `ODP_CFLAGS_EXTRA` - for compilation options, e.g. defines, includes
   * `LIBS` - for additional libraries, e.g. `-ldl`
   * `LDFLAGS` - for linker flags, e.g. `-pie`
+  * `EXTRA_CFLAGS` - dynamic compilation options that could be added to make process
 
 Additinally, configure cript presents another option for performance-oriented builds:
 
@@ -243,8 +244,8 @@ They can be used along with "configure" script, eg.:
             --host=aarch64-thunderx-linux-gnu \
             --with-openssl-path=${OPENSSL_DIR} \
             --disable-debug-print \
-            CFLAGS="-O3 -g" \
-            LDFLAGS="-ldl"
+            ODP_CFLAGS_EXTRA="-O3 -g" \
+            LIBS="-ldl"
 
 There are 2 options controlling debug level:
   - "--enable-debug-print", "--disable-debug-print" - controls ODP internal
@@ -281,14 +282,14 @@ Additional compilation options for ODP platform behavior
 
 There are several ODP ThunderX port defines which influence on compilation:
 
-- NIC_QUEUE_STATS – adding of -DNIC_QUEUE_STATS to ODP_CFLAGS allow application
+- NIC_QUEUE_STATS – adding of -DNIC_QUEUE_STATS to ODP_CFLAGS_EXTRA allow application
   to print out the internal NIC statistics to console. For that additional
   odp_pktio_stats_dump() ODP API function was added to ThunderX port. Using of
   this option may slightly decrease performance.
 
 - ODP_DISABLE_CLASSIFICATION and NIC_DISABLE_PACKET_PARSING – if user
   application does not use classification subsystem, adding of
-  -DODP_DISABLE_CLASSIFICATION and -DNIC_DISABLE_PACKET_PARSING to ODP_CFLAGs
+  -DODP_DISABLE_CLASSIFICATION and -DNIC_DISABLE_PACKET_PARSING to ODP_CFLAGS_EXTRA
   will increase the performance.  This is because ThunderX does not have any HW
   assisted classification and this process need to be done for every packet
   received purely by SW. Direct usage of pktio interface is not affected.
