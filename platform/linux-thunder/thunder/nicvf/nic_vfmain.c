@@ -276,7 +276,7 @@ int nicvf_open(struct nicvf *nic, const uint8_t mac[ETH_ALEN], bool set_mac)
 		}
 	}
 
-	nic->mtu = 9000;
+	nic->mtu = NIC_HW_MAX_FRS;
 	if (nicvf_mbox_update_hw_max_frs(nic, nic->mtu)) {
 	       ERR("Canot configure MTU\n");
 	       return -1;

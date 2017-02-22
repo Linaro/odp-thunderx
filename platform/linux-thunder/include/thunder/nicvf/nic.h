@@ -319,6 +319,8 @@ enum {
 #define NIC_NS_PER_100_SYETEM_CLK	125
 #define NICPF_CLK_PER_INT_TICK		100
 
+#define	NIC_HW_MAX_FRS			9190 /* Excluding L2 header and FCS */
+
 /* this function should be used for registers where each queue has its single bit */
 static inline __attribute__((always_inline)) void nicvf_vf_reg_write(
 	struct queue_set *qset, uint64_t offset, uint64_t val)
