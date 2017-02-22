@@ -8,16 +8,55 @@
 #include <odp_debug_internal.h>
 #include <string.h>
 
-int cpuinfo_parser(FILE *file ODP_UNUSED, system_info_t *sysinfo)
+static const char *get_implementer_str(unsigned implementer)
 {
-	int i;
+	switch (implementer) {
+		case 0x43:
+			return "Cavium";
+		case 0x41:
+		case 0x50:
+			return "APM";
+		case 0x42:
+			return "Broadcom";
+		default:
+			return "Unknown";
+	};
+}
 
-	ODP_DBG("Warning: use dummy values for freq and model string\n");
-	for (i = 0; i < MAX_CPU_NUMBER; i++) {
-		sysinfo->cpu_hz_max[i] = 1400000000;
-		strcpy(sysinfo->model_str[i], "UNKNOWN");
+static const char *get_part_str(unsigned part)
+{
+	switch (part) {
+		case 0xA1:
+			return "ThunderX";
+		case 0xA2:
+			return "ThunderX 81XX";
+		case 0xA3:
+			return "Octeon TX 83XX";
+		default:
+			return "Unknown";
+	};
+}
+
+int cpuinfo_parser(FILE *file, system_info_t *sysinfo)
+{
+	unsigned implementer,part,id = 0;
+	size_t max = sizeof(sysinfo->model_str);
+	char str[1024];
+
+	//ODP_DBG("Warning: use dummy values for freq and model string\n");
+	strcpy(sysinfo->cpu_arch_str, "arm64");
+	while (fgets(str, sizeof(str), file) != NULL && id < MAX_CPU_NUMBER) {
+		sscanf(str, "processor : %u", &id);
+
+		if (sscanf(str, "CPU implementer : 0x%x", &implementer) == 1)
+			snprintf(sysinfo->model_str[id], max, "%s ",
+					get_implementer_str(implementer));
+		if (sscanf(str, "CPU part : 0x%x", &part) == 1)
+			strncat(sysinfo->model_str[id],
+				get_part_str(part), max);
+
+		sysinfo->cpu_hz_max[id] = 1400000000;
 	}
-
 	return 0;
 }
 
