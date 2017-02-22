@@ -902,7 +902,7 @@ static void parse_args(int argc, char *argv[], appl_args_t *appl_args)
 	appl_args->timeout = -1;
 
 	while (1) {
-		opt = getopt_long(argc, argv, "+I:a:b:c:d:s:i:m:n:t:w:h",
+		opt = getopt_long(argc, argv, "+I:a:b:c:d:s:i:m:n:t:w:h:v",
 					longopts, &long_index);
 		if (opt == -1)
 			break;	/* No more options */
