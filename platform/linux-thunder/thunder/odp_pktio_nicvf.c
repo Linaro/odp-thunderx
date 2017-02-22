@@ -82,6 +82,8 @@ static int nicvf_pktio_send_dummy(pktio_entry_t *pktio_entry ODP_UNUSED,
 				  const odp_packet_t pkt_table[] ODP_UNUSED,
 				  int num ODP_UNUSED);
 
+void odp_pktio_dump_regs(const char *name);
+
 /**
  * Private functions
  */
@@ -558,6 +560,16 @@ void odp_pktio_stats_dump(odp_pktio_t id)
 #else
 	(void)id;
 #endif
+}
+
+void odp_pktio_dump_regs(const char *name)
+{
+	odp_pktio_t id = odp_pktio_lookup(name);
+	pktio_entry_t *pktio_entry = get_pktio_entry(id);
+	if (pktio_entry == NULL)
+		return;
+	pkt_nicvf_t *pkt_nicvf = &pktio_entry->s.pkt_nicvf;
+	nicvf_dump_regs(&pkt_nicvf->nicvf);
 }
 
 /**

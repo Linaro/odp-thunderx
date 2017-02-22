@@ -536,5 +536,6 @@ size_t nicvf_qset_cq_handler(
 size_t nicvf_qset_rbdr_handler(struct nicvf *nic, size_t rbdr_idx, size_t qidx, uint64_t free_cnt);
 void nicvf_print_queue_stats(struct nicvf *nic);
 void nicvf_stathw_get(struct queue_set *qset, struct hw_stats_t * __restrict__ stats);
+void nicvf_dump_regs(struct nicvf *nic);
 
 #endif

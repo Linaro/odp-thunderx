@@ -98,7 +98,6 @@
 #define GET_SQ_STATS(_nic, _qidx, _reg) \
 	nicvf_qidx_reg_read(_nic, (_qidx), NIC_QSET_SQ_0_7_STAT_0_1 | ((_reg) << 3))
 
-void nicvf_dump_regs(struct nicvf *nic);
 
 /* this function should be used for registers where each queue has its single bit */
 static inline __attribute__((always_inline)) void nicvf_qidx_reg_write(
