@@ -44,6 +44,16 @@ static inline uint64_t odp_cpu_cycles(void)
 	return MRS(cntvct_el0);
 }
 
+static inline uint64_t odp_cpu_cycles_max(void)
+{
+	return UINT64_MAX;
+}
+
+static inline uint64_t odp_cpu_cycles_resolution(void)
+{
+	return MRS(cntfrq_el0);
+}
+
 #ifdef __cplusplus
 }
 #endif
