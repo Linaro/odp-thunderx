@@ -4,6 +4,7 @@
  * SPDX-License-Identifier:     BSD-3-Clause
  */
 
+#include <odp/api/cpu_arch.h>
 #include <odp_internal.h>
 #include <odp_debug_internal.h>
 #include <string.h>
@@ -46,7 +47,8 @@ int cpuinfo_parser(FILE *file, system_info_t *sysinfo)
 	//ODP_DBG("Warning: use dummy values for freq and model string\n");
 	strcpy(sysinfo->cpu_arch_str, "arm64");
 	while (fgets(str, sizeof(str), file) != NULL && id < MAX_CPU_NUMBER) {
-		sscanf(str, "processor : %u", &id);
+		if ( sscanf(str, "processor : %u", &id) == 1)
+			sysinfo->cpu_hz_max[id] = odp_cpu_hz_current(id);
 
 		if (sscanf(str, "CPU implementer : 0x%x", &implementer) == 1)
 			snprintf(sysinfo->model_str[id], max, "%s ",
@@ -55,12 +57,40 @@ int cpuinfo_parser(FILE *file, system_info_t *sysinfo)
 			strncat(sysinfo->model_str[id],
 				get_part_str(part), max);
 
-		sysinfo->cpu_hz_max[id] = 1400000000;
 	}
 	return 0;
 }
 
+#define USE(x) __asm volatile ("" :: "r" (x));
+#define X4(x) x x x x
+#define X16(x) X4(X4(x))
+
+/*The loop yields good results only when optimized*/
+
+__attribute__((noinline,optimize("-O2")))
+static void calibrating_loop(size_t n)
+{
+	size_t i;
+	long r = 1;
+	for (i=0; i < n; i++) {
+		X16(
+		r ^= r + 4;
+		)
+	}
+	USE(r);
+}
+
 uint64_t odp_cpu_hz_current(int id ODP_UNUSED)
 {
-	return 0;
+	uint64_t t1,t2;
+	uint64_t hz = odp_cpu_cycles_resolution();
+	size_t n = 100000;
+
+	t1 = odp_cpu_cycles();
+	calibrating_loop(n);
+	t2 = odp_cpu_cycles();
+
+	double t_cyc = ((double)(t2-t1))/(n*32.0);
+	double cyc_mhz = hz/(t_cyc*1000000.0);
+	return (((long)cyc_mhz + 50) / 100) * 100000000;
 }
