@@ -100,13 +100,13 @@ int nicvf_mbox_read_response(struct queue_set *qset)
 	case NIC_MBOX_MSG_READY:
 	case NIC_MBOX_MSG_ACK:
 	case NIC_MBOX_MSG_NACK:
-	case NIC_MBOX_MSG_RSS_SIZE | NIC_MBOX_MSG_RES_BIT:
+	case NIC_MBOX_MSG_RSS_SIZE:
 #ifdef VNIC_MULTI_QSET_SUPPORT
-	case NIC_MBOX_MSG_ALLOC_SQS | NIC_MBOX_MSG_RES_BIT:
+	case NIC_MBOX_MSG_ALLOC_SQS:
 #endif
 	case NIC_MBOX_MSG_BGX_LINK_CHANGE:
 		DBGV3("VF Mbox msg received msg_id=0x%x %s\n",
-		      msg, msg_names[msg & (~NIC_MBOX_MSG_RES_BIT)]);
+		      msg, msg_names[msg]);
 		/* overwrite the message buffer so we won't receive it again */
 		nicvf_vf_reg_write(qset, NIC_VF_PF_MAILBOX_0_1, NIC_MBOX_MSG_INVALID);
 
@@ -124,8 +124,7 @@ int nicvf_mbox_read_response(struct queue_set *qset)
 
 	default:
 		/* in other cases it means message was invalid or not received */
-		DBG("Unknown Mbox msg received msg_id=0x%x\n",
-		    msg & (~NIC_MBOX_MSG_RES_BIT));
+		DBG("Unknown Mbox msg received msg_id=0x%x\n", msg);
 		ret = -1;
 		break;
 	}
@@ -173,7 +172,7 @@ static void nicvf_mbox_send_msg_to_pf_raw(
 	int i;
 
 	DBG("Sending msg to PF msg=0x%02x %s\n", mbx->msg.msg,
-	     msg_names[mbx->msg.msg & (~NIC_MBOX_MSG_RES_BIT)]);
+	     msg_names[mbx->msg.msg]);
 
 	mbx_addr = NIC_VF_PF_MAILBOX_0_1;
 	mbx_ptr = (uint64_t *)mbx;
@@ -299,7 +298,7 @@ int nicvf_mbox_get_rss_size(struct queue_set *qset)
 	mbx.rss_size.vf_id = qset->vf_id;
 
 	if (nicvf_mbox_send_msg_to_pf(qset, &mbx, &res) ||
-	    res.msg.msg != (NIC_MBOX_MSG_RSS_SIZE | NIC_MBOX_MSG_RES_BIT))
+	    res.msg.msg != (NIC_MBOX_MSG_RSS_SIZE))
 		return -1;
 
 	return res.rss_size.ind_tbl_size;
@@ -497,7 +496,7 @@ int nicvf_mbox_qset_allocate_sqs(struct nicvf *nic)
 	}
 
 	if (nicvf_mbox_send_msg_to_pf(&nic->qset[0], &mbx, &res) ||
-	    res.msg.msg != (NIC_MBOX_MSG_ALLOC_SQS | NIC_MBOX_MSG_RES_BIT)) {
+	    res.msg.msg != (NIC_MBOX_MSG_ALLOC_SQS)) {
 		ERR("Invalid or missing response for alloc SQS\n");
 		return -1;
 	}
