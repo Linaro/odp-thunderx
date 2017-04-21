@@ -468,7 +468,7 @@ int nicvf_mbox_rq_bp_cfg(struct queue_set *qset)
 	mbx.msg.msg = NIC_MBOX_MSG_RQ_BP_CFG;
 	mbx.rq.qs_num = qset->vf_id;
 	mbx.rq.rq_num = qset->qset_idx;
-	mbx.rq.cfg = (1ULL << 63) | (1ULL << 62) | (0xff << 16) | (0xff << 8) | (qset->vf_id << 0);
+	mbx.rq.cfg = (1ULL << 63) | (1ULL << 62) | (qset->vf_id << 0);
 	if (nicvf_mbox_send_msg_to_pf(qset, &mbx, &res) ||
 	    res.msg.msg != NIC_MBOX_MSG_ACK)
 		return -1;
